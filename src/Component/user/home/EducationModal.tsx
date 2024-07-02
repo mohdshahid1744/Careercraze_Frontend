@@ -2,11 +2,12 @@ import React from 'react';
 import { Modal, Box, TextField, Button, Typography } from '@mui/material';
 import { useFormik } from "formik";
 import * as yup from "yup";
-
+import { axiosUserInstance } from '../../../utils/axios/Axios';
 interface EducationModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (education: { school: string, degree: string, field: string, started: Date, ended: Date }) => void;
+  userId: string;
+  fetchProfileData: () => void;
 }
 
 const validationSchema = yup.object({
@@ -14,10 +15,17 @@ const validationSchema = yup.object({
   degree: yup.string().required('Degree is required'),
   field: yup.string().required('Field of study is required'),
   started: yup.date().required('Start date is required').nullable(),
-  ended: yup.date().required('End date is required').nullable(),
+  ended: yup.date()
+    .required('End date is required')
+    .nullable()
+    .min(
+      yup.ref('started'),
+      'End date cannot be before start date'
+    ),
 });
 
-const EducationModal: React.FC<EducationModalProps> = ({ open, onClose, onSubmit }) => {
+
+const EducationModal: React.FC<EducationModalProps> = ({ open, onClose, userId, fetchProfileData }) => {
   const formik = useFormik({
     initialValues: {
       school: '',
@@ -27,13 +35,20 @@ const EducationModal: React.FC<EducationModalProps> = ({ open, onClose, onSubmit
       ended: '',
     },
     validationSchema: validationSchema,
-    onSubmit: (values) => {
-      onSubmit({
-        ...values,
-        started: new Date(values.started),
-        ended: new Date(values.ended),
-      });
-      onClose();
+    onSubmit: async (values) => {
+      try {
+        const education = {
+          ...values,
+          started: new Date(values.started),
+          ended: new Date(values.ended),
+        };
+        await axiosUserInstance.put(`/updateEducation/${userId}`, education);
+        fetchProfileData();
+      } catch (error) {
+        console.error('Error adding experience:', error);
+      } finally {
+        onClose();
+      }
     },
   });
 

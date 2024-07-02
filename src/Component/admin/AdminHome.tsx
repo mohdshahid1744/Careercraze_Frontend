@@ -6,7 +6,7 @@ import { adminLogout } from '../../Redux/Slice/adminSlice';
 import axios from 'axios';
 import { axiosRecruiterInstance } from '../../utils/axios/Axios';
 import { axiosUserInstance } from '../../utils/axios/Axios';
-
+import LogoutIcon from '@mui/icons-material/Logout';
 function AdminHome() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -39,7 +39,9 @@ function AdminHome() {
   const menuItems = [
     { text: 'Dashboard', onClick: () => navigate('/admin/dashboard') },
     { text: 'User', onClick: () => navigate('/admin/user') },
-    { text: 'Recruiter', onClick: () => navigate('/admin/recruiter') }
+    { text: 'Recruiter', onClick: () => navigate('/admin/recruiter') },
+    { text: 'Skill', onClick: () => navigate('/admin/skill') },
+    { text: 'Post', onClick: () => navigate('/admin/post') },
   ];
 
   return (
@@ -66,7 +68,7 @@ function AdminHome() {
             <Typography variant="h6" className="flex-grow">
               Admin Dashboard
             </Typography>
-            <Button color="inherit" onClick={handleLogout}>
+            <Button color="inherit" onClick={handleLogout} startIcon={<LogoutIcon />}>
               Logout
             </Button>
           </Toolbar>

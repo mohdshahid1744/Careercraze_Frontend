@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { axiosAdminInstance } from '../../utils/axios/Axios';
+import { axiosAdminInstance, axiosRecruiterInstance } from '../../utils/axios/Axios';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -15,14 +15,15 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import Box from '@mui/material/Box';
-import { Drawer, List, ListItem, ListItemText, AppBar, Toolbar, Typography } from '@mui/material';
+import { Drawer, List, ListItem, ListItemText, AppBar, Toolbar, Typography,TextField } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { adminLogout } from '../../Redux/Slice/adminSlice';
+import LogoutIcon from '@mui/icons-material/Logout';
 
 type User = {
     name: string;
     isActive: boolean;
-    status: boolean;
+    status: 'pending' | 'verified' | 'rejected';
     email: string;
     mobile: number;
     companyName: string;
@@ -32,7 +33,10 @@ type User = {
 function RecruiterManagement() {
     const [Users, setUsers] = useState<User[]>([]);
     const [open, setOpen] = useState(false);
+    const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
+    const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
+    const [rejectionReason, setRejectionReason] = useState('');
     const navigate = useNavigate();
     const dispatch = useDispatch();
 
@@ -43,6 +47,27 @@ function RecruiterManagement() {
 
     const handleClose = () => {
         setOpen(false);
+        setSelectedUser(null);
+    };
+
+    const handleVerifyOpen = (user: User) => {
+        setSelectedUser(user);
+        setVerifyDialogOpen(true);
+    };
+
+    const handleVerifyClose = () => {
+        setVerifyDialogOpen(false);
+        setSelectedUser(null);
+    };
+
+    const handleRejectOpen = (user: User) => {
+        setSelectedUser(user);
+        setRejectionReason('');
+        setRejectDialogOpen(true);
+    };
+
+    const handleRejectClose = () => {
+        setRejectDialogOpen(false);
         setSelectedUser(null);
     };
 
@@ -59,11 +84,28 @@ function RecruiterManagement() {
             handleClose();
         }
     };
-    const handleLogout = () => {
-      dispatch(adminLogout());
-      localStorage.removeItem('adminToken');
-      navigate('/');
+
+    const handleToggleStatus = async (newStatus: 'verified' | 'rejected', reason: string = '') => {
+        if (!selectedUser) return;
+        try {
+            const response = await axiosRecruiterInstance.put(`/recruiter/verify/${selectedUser.email}`, { status: newStatus, reason });
+            if (response.data && response.data.users) {
+                setUsers(response.data.users);
+            }
+        } catch (error) {
+            console.error('Error toggling user status:', error);
+        } finally {
+            newStatus === 'verified' ? handleVerifyClose() : handleRejectClose();
+        }
     };
+    
+
+    const handleLogout = () => {
+        dispatch(adminLogout());
+        localStorage.removeItem('adminToken');
+        navigate('/');
+    };
+
     useEffect(() => {
         const fetchData = async () => {
             try {
@@ -82,8 +124,11 @@ function RecruiterManagement() {
     const menuItems = [
         { text: 'Dashboard', onClick: () => navigate('/admin/dashboard') },
         { text: 'User', onClick: () => navigate('/admin/user') },
-        { text: 'Recruiter', onClick: () => navigate('/admin/recruiter') }
-    ];
+        { text: 'Recruiter', onClick: () => navigate('/admin/recruiter') },
+        { text: 'Skill', onClick: () => navigate('/admin/skill') },
+        { text: 'Post', onClick: () => navigate('/admin/post') },
+      ];
+    
 
     return (
         <div className="flex min-h-screen bg-gray-200">
@@ -109,13 +154,13 @@ function RecruiterManagement() {
                         <Typography variant="h6" className="flex-grow">
                             Recruiter Management
                         </Typography>
-                        <Button color="inherit" onClick={handleLogout}>
+                        <Button color="inherit" onClick={handleLogout} startIcon={<LogoutIcon />}>
                             Logout
                         </Button>
                     </Toolbar>
                 </AppBar>
                 <Box className="flex flex-col items-center justify-center p-4 flex-grow">
-          <Box className="bg-white p-6 rounded-lg shadow-md text-center w-full max-w-7xl mt-4">
+                    <Box className="bg-white p-6 rounded-lg shadow-md text-center w-full max-w-7xl mt-4">
                         <TableContainer component={Paper}>
                             <Table sx={{ minWidth: 650 }} aria-label="simple table">
                                 <TableHead>
@@ -126,6 +171,7 @@ function RecruiterManagement() {
                                         <TableCell align="left">Company Name</TableCell>
                                         <TableCell align="left">Company E-Mail</TableCell>
                                         <TableCell align="left">Active</TableCell>
+                                        <TableCell align="left">Status</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
@@ -145,6 +191,40 @@ function RecruiterManagement() {
                                                     {user.isActive ? 'Block' : 'Unblock'}
                                                 </Button>
                                             </TableCell>
+                                            <TableCell align="left">
+                                                    {user.status === 'pending' && (
+                                                        <>
+                                                            <Button
+                                                                variant="contained"
+                                                                color="primary"
+                                                                onClick={() => handleVerifyOpen(user)}
+                                                                disabled={user.status !== 'pending'}
+                                                            >
+                                                                Verify
+                                                            </Button>
+                                                            <Button
+                                                                variant="contained"
+                                                                color="primary"
+                                                                onClick={() => handleRejectOpen(user)}
+                                                                disabled={user.status !== 'pending'}
+                                                                style={{ marginLeft: '10px' }}
+                                                            >
+                                                                Reject
+                                                            </Button>
+                                                        </>
+                                                    )}
+                                                    {user.status === 'verified' && (
+                                                        <Typography variant="body1" style={{ color: 'green' }}>
+                                                            Verified
+                                                        </Typography>
+                                                    )}
+                                                    {user.status === 'rejected' && (
+                                                        <Typography variant="body1" style={{ color: 'red' }}>
+                                                            Rejected
+                                                        </Typography>
+                                                    )}
+                                                </TableCell>
+
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -153,12 +233,50 @@ function RecruiterManagement() {
                     </Box>
                 </Box>
             </div>
-
             <Dialog
-                open={open}
-                onClose={handleClose}
-                aria-labelledby="alert-dialog-title"
-                aria-describedby="alert-dialog-description"
+    open={rejectDialogOpen}
+    onClose={handleRejectClose}
+    aria-labelledby="reject-dialog-title"
+    aria-describedby="reject-dialog-description"
+    PaperProps={{
+        style: {
+            borderRadius: 20,
+            boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.2)',
+        },
+    }}
+>
+    <DialogTitle id="reject-dialog-title">
+        Reject Recruiter
+    </DialogTitle>
+    <DialogContent>
+        <DialogContentText id="reject-dialog-description">
+            Are you sure you want to reject the recruiter "{selectedUser?.name}"? Please provide a reason for rejection.
+        </DialogContentText>
+        <TextField
+            autoFocus
+            margin="dense"
+            id="rejectionReason"
+            label="Rejection Reason"
+            type="text"
+            fullWidth
+            value={rejectionReason}
+            onChange={(e:any) => setRejectionReason(e.target.value)}
+        />
+    </DialogContent>
+    <DialogActions>
+        <Button onClick={handleRejectClose} color="primary">
+            Cancel
+        </Button>
+        <Button onClick={() => handleToggleStatus('rejected', rejectionReason)} color="primary" autoFocus>
+            Confirm
+        </Button>
+    </DialogActions>
+</Dialog>
+            <Dialog
+                open={verifyDialogOpen}
+                onClose={handleVerifyClose}
+                aria-labelledby="verify-dialog-title"
+                aria-describedby="verify-dialog-description"
                 PaperProps={{
                     style: {
                         borderRadius: 20,
@@ -166,26 +284,27 @@ function RecruiterManagement() {
                     },
                 }}
             >
-                <DialogTitle id="alert-dialog-title">
-                    {selectedUser?.isActive ? 'Block Recruiter' : 'Unblock Recruiter'}
+                <DialogTitle id="verify-dialog-title">
+                    Verify Recruiter
                 </DialogTitle>
                 <DialogContent>
-                    <DialogContentText id="alert-dialog-description">
-                        Are you sure you want to {selectedUser?.isActive ? 'block' : 'unblock'} the recruiter "{selectedUser?.name}"?
+                    <DialogContentText id="verify-dialog-description">
+                        Are you sure you want to verify the recruiter "{selectedUser?.name}"?
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleClose} color="primary">
+                    <Button onClick={handleVerifyClose} color="primary">
                         Cancel
                     </Button>
-                    <Button onClick={handleToggleActive} color="primary" autoFocus>
+                    <Button onClick={() => handleToggleStatus('verified')} color="primary" autoFocus>
                         Confirm
                     </Button>
                 </DialogActions>
             </Dialog>
+
+       
         </div>
     );
 }
 
 export default RecruiterManagement;
-

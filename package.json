@@ -16,7 +16,11 @@
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.7.2",
+    "date-fns": "^3.6.0",
     "formik": "^2.4.6",
+    "js-cookie": "^3.0.5",
+    "jwt-decode": "^4.0.0",
+    "lodash": "^4.17.21",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.51.5",
@@ -52,6 +56,8 @@
     ]
   },
   "devDependencies": {
+    "@types/js-cookie": "^3.0.6",
+    "@types/lodash": "^4.17.6",
     "@types/node": "^20.12.12",
     "@types/react": "^18.3.2",
     "@types/react-dom": "^18.3.0",

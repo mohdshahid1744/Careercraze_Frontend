@@ -1,18 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { AppBar, Toolbar, Typography, Button, Box, Grid, Container, CardContent, Card } from '@mui/material';
+import { AppBar, Toolbar, Typography, Button, Box, Grid, Container, CardContent, Card, CircularProgress } from '@mui/material';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { recruiterLogout } from '../../../Redux/Slice/recruiterSlice';
 import { axiosRecruiterInstance } from '../../../utils/axios/Axios';
 import { RootState } from '../../../Redux/Store/Store';
-
+interface RecruiterDetails {
+  name: string;
+  email: string;
+}
 function Home() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [jobpost, setJobPost] = useState<any[]>([]);
   const userId = useSelector((store: RootState) => store.recruiter.UserId);
-  const [currentPage, setCurrentPage] = useState(1); 
-  const [postsPerPage] = useState(2);
+  console.log("IDSSA",userId);
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [postsPerPage] = useState(3);
+  const [status, setStatus] = useState<'pending' | 'verified' | 'rejected' | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedJob, setSelectedJob] = useState<any>(null);
+  const [recruiterDetails, setRecruiterDetails] = useState<RecruiterDetails | null>(null);
+  const [recruiterEmail, setRecruiterEmail] = useState<string>('');
 
   const handleLogout = () => {
     dispatch(recruiterLogout());
@@ -28,21 +38,54 @@ function Home() {
     navigate('/recruiter/newjob');
   };
 
+  const handleViewDetails = (job: any) => {
+    setSelectedJob(job);
+  };
+
   useEffect(() => {
+    const fetchRecruiterStatus = async () => {
+      try {
+        const response = await axiosRecruiterInstance.get(`/recruiter/showverify/${userId}`);
+        setStatus(response.data.status);
+      } catch (error) {
+        console.error('Error fetching recruiter status:', error);
+        setStatus(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     const fetchJobs = async () => {
       try {
         const response = await axiosRecruiterInstance.get(`/recruiter/getjob/${userId}`);
-        console.log('Fetched jobs:', response.data); 
+        console.log('Fetched jobs:', response.data);
         const jobsArray = response.data.jobs?.jobs || [];
         setJobPost(jobsArray);
+        if (jobsArray.length > 0) {
+          setSelectedJob(jobsArray[0]);
+        }
       } catch (error) {
         console.error('Error fetching jobs:', error);
         setJobPost([]);
       }
     };
 
+    const fetchRecruiterDetails = async () => {
+      try {
+        const response = await axiosRecruiterInstance.get(`/recruiter/getrecruiter/${userId}`);
+        console.log("SAD",response.data);
+        
+        setRecruiterDetails(response.data.response); 
+        
+      } catch (error) {
+        console.error('Error fetching recruiter details:', error);
+      }
+    };
+
     if (userId) {
+      fetchRecruiterStatus();
       fetchJobs();
+      fetchRecruiterDetails();
     }
   }, [userId]);
 
@@ -52,11 +95,13 @@ function Home() {
       if (response.status === 200) {
         const updatedJobPost = jobpost.filter(job => job._id !== postId);
         setJobPost(updatedJobPost);
+        setSelectedJob(updatedJobPost.length > 0 ? updatedJobPost[0] : null);
       }
     } catch (error) {
       console.error('Error deleting job post:', error);
     }
   };
+
   const handleProfile = () => {
     if (userId) {
       navigate(`/recruiter/profile/${userId}`);
@@ -66,174 +111,314 @@ function Home() {
   const handleCandidates = (jobid: string) => {
     navigate(`/recruiter/candidates/${jobid}`);
   };
+
   const indexOfLastPost = currentPage * postsPerPage;
   const indexOfFirstPost = indexOfLastPost - postsPerPage;
   const currentPosts = jobpost.slice(indexOfFirstPost, indexOfLastPost);
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: 'beige' }}>
-      <AppBar position="static" sx={{ height: '85px', backgroundColor: 'white' }}>
-        <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+    
+
+      {status !== 'pending' && status !== 'rejected' && (
+        <AppBar position="static" sx={{ height: '85px', backgroundColor: 'white' }}>
+          <Toolbar>
+            <Typography variant="h6" sx={{ flexGrow: 1 }}>
             <img
-              src='../../../Images/logo.png'
+              src="../../../Images/logo.png"
               alt="Logo"
               className="w-16 h-auto absolute"
               style={{ top: '10px', left: '50px' }}
             />
-          </Typography>
-
-          <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center' }}>
-            <Grid container spacing={2} justifyContent="center">
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }}>
-                  <img src="../../../Images/Home.png" alt="Home Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Home</Typography>
-                </Button>
-              </Grid>
-              <Grid item></Grid>
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleNewJob}>
-                  <img src="../../../Images/newjob.png" alt="New Job Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">New Job</Typography>
-                </Button>
-              </Grid>
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }}>
-                  <img src="../../../Images/message.png" alt="Message Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Message</Typography>
-                </Button>
-              </Grid>
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleProfile}>
-                  <img src="../../../Images/Profile.png" alt="Profile Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Me</Typography>
-                </Button>
-              </Grid>
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleLogout}>
-                  <img src="../../../Images/logout.png" alt="Logout Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Logout</Typography>
-                </Button>
-              </Grid>
-            </Grid>
-          </Box>
-        </Toolbar>
-      </AppBar>
-
-      <Container>
-        <Typography variant="h4" component="h1" gutterBottom style={{ marginLeft: "250px" }} >
-          Job List
-        </Typography>
-        <Grid container justifyContent="flex-end" sx={{ width: '300px', height: '400px', backgroundColor: 'white', borderRadius: '10px', marginLeft: '-100px' }}>
-          <Box p={1}>
-            <Typography variant="body1" sx={{ backgroundColor: '#f0f0f0', padding: '20px', borderRadius: '5px', boxShadow: '-5px 0 5px rgba(0, 0, 0, 0.1)', marginTop: "150px" }}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
-                  Name: Hakkem
-                </Typography>
-                <Typography variant="body1">
-                  Email: Hakkeem@gmail.com
-                </Typography>
-              </div>
             </Typography>
-          </Box>
+
+            <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center' }}>
+              <Grid container spacing={2} justifyContent="center">
+                <Grid item>
+                  <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }}>
+                    <img src='../../../Images/Home.png' alt="Home Icon" style={{ width: '30px', height: '30px' }} />
+                    <Typography variant="caption">Home</Typography>
+                  </Button>
+                </Grid>
+                <Grid item>
+                  <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleNewJob}>
+                    <img src='../../../Images/newjob.png' alt="New Job Icon" style={{ width: '30px', height: '30px' }} />
+                    <Typography variant="caption">New Job</Typography>
+                  </Button>
+                </Grid>
+                <Grid item>
+                  <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }}>
+                    <img src='../../../Images/message.png'alt="Message Icon" style={{ width: '30px', height: '30px' }} />
+                    <Typography variant="caption">Message</Typography>
+                  </Button>
+                </Grid>
+                <Grid item>
+                  <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleProfile}>
+                    <img src='../../../Images/Profile.png' alt="Profile Icon" style={{ width: '30px', height: '30px' }} />
+                    <Typography variant="caption">Me</Typography>
+                  </Button>
+                </Grid>
+                <Grid item>
+                  <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleLogout}>
+                    <img src='../../../Images/logout.png' alt="Logout Icon" style={{ width: '30px', height: '30px' }} />
+                    <Typography variant="caption">Logout</Typography>
+                  </Button>
+                </Grid>
+              </Grid>
+            </Box>
+          </Toolbar>
+        </AppBar>
+      )}
+
+<Container sx={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
+  {status === 'pending' ? (
+    <Box
+      sx={{
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        textAlign: 'center',
+        width: '80%',
+        maxWidth: '600px',
+        padding: '30px',
+        backgroundColor: '#ffffff',
+        borderRadius: '10px',
+        boxShadow: '0px 0px 20px rgba(0, 0, 0, 0.1)',
+        zIndex: 1000,
+      }}
+    >
+                <img
+            src='../../../Images/waiting.jpg'
+            alt="Verification Icon"
+            style={{
+              width: '100%',
+              height: '300px',
+              marginBottom: '20px',
+              borderRadius: '10px',
+              boxShadow: '0px 10px 20px rgba(0, 0, 0, 0.3)',
+            }}
+          />
+          <CircularProgress size={120} thickness={4} sx={{ marginBottom: '20px' }} />
+          <Typography variant="h5" sx={{ marginBottom: '20px' }}>
+            Your account is under verification.
+          </Typography>
+          <Typography variant="body1" sx={{ marginBottom: '20px' }}>
+            Thank you for submitting your details. Our team is currently verifying your account.
+          </Typography>
+          <Typography variant="body2" color="textSecondary">
+            This process usually takes up to 24 hours. We appreciate your patience.
+          </Typography>
+    </Box>
+  ) : status === 'rejected' ?       (
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        boxShadow: '0px 0px 20px rgba(0, 0, 0, 0.2)',
+        borderRadius: '10px',
+        padding: '30px',
+        backgroundColor: '#ffffff',
+        maxWidth: '400px',
+        zIndex: 1000,
+      }}
+    >
+      <Typography variant="h4" gutterBottom style={{ fontSize: '2rem', color: '#ff5252' }}>
+        Account Rejected 😞
+      </Typography>
+      <Typography variant="body1" style={{ marginBottom: '20px', textAlign: 'center' }}>
+        We're sorry, your account verification has been rejected. Please contact support for further assistance.
+      </Typography>
+      <Button
+        variant="contained"
+        color="primary"
+        onClick={handleLogout}
+        sx={{ textTransform: 'none' }}
+      >
+        Logout
+      </Button>
+    </Box>
+  ) : (
+    <Box sx={{ mt: 4, maxWidth: '1000px', width: '100%', display: 'flex', justifyContent: 'space-between' }}>
+      <Box sx={{ width: '300px', height: '400px', backgroundColor: 'white', borderRadius: '10px', marginLeft: '-100px' }}>
+        <Box p={1}>
+          <Typography variant="body1" sx={{ backgroundColor: '#f0f0f0', padding: '20px', borderRadius: '5px', boxShadow: '-5px 0 5px rgba(0, 0, 0, 0.1)', marginTop: '150px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                Name: {recruiterDetails?.name}
+              </Typography>
+              <Typography variant="body1">
+                Email:  {recruiterDetails?.email}
+              </Typography>
+            </div>
+          </Typography>
+        </Box>
+      </Box>
+
+      <Box sx={{ width: '100%' }}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={6}>
+            <Box
+              sx={{
+                backgroundColor: 'beige',
+                padding: '20px',
+                borderRadius: '10px',
+                boxShadow: '0px 0px 20px rgba(0, 0, 0, 0.1)',
+                border: '1px solid #000000',
+                ml: 4,
+                width: '100%',
+              }}
+            >
+              <Typography variant="h6" sx={{ marginBottom: '20px' }}>
+                Posted Jobs
+              </Typography>
+              {currentPosts.length > 0 ? (
+                currentPosts.map((job) => (
+                  <Card key={job._id} sx={{ marginBottom: '20px', boxShadow: '0px 0px 10px rgba(0, 0, 0, 0.1)', height: '140px', borderRadius: '15px' }}>
+                    <CardContent>
+                      <Typography variant="h6">{job.jobrole}</Typography>
+                      <Typography variant="body2">{job.joblocation}</Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        {new Date(job.createdAt).toLocaleDateString()}
+                      </Typography>
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        sx={{ mt: 1 }}
+                        onClick={() => handleViewDetails(job)}
+                      >
+                        View Details
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                <Typography variant="body2">No job posts available.</Typography>
+              )}
+              <Pagination
+                currentPage={currentPage}
+                postsPerPage={postsPerPage}
+                totalPosts={jobpost.length}
+                paginate={paginate}
+              />
+            </Box>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            {selectedJob && (
+              <Box
+                sx={{
+                  backgroundColor: 'beige',
+                  padding: '20px',
+                  borderRadius: '10px',
+                  boxShadow: '0px 0px 20px rgba(0, 0, 0, 0.1)',
+                  minHeight: '100%',
+                  width: '410px',
+                  ml: 4,
+                }}
+              >
+                <Typography variant="h6" sx={{ marginBottom: '20px' }}>
+                  {selectedJob.title}
+                </Typography>
+                <img
+                  src={selectedJob.companylogo}
+                  alt={selectedJob.companyname}
+                  className="ml-4"
+                  style={{ height: '200px', width: '80px', objectFit: 'contain' }}
+                />
+                <Typography variant="body1" sx={{ marginBottom: '10px' }}>
+                  <strong>Job Role:</strong> {selectedJob.jobrole}
+                </Typography>
+                <Typography variant="body1" sx={{ marginBottom: '10px' }}>
+                  <strong>Company Name:</strong> {selectedJob.companyname}
+                </Typography>
+                <Typography variant="body1" sx={{ marginBottom: '10px' }}>
+                  <strong>Experience:</strong> {selectedJob.minexperience} - {selectedJob.maxexperience} Years
+                </Typography>
+                <Typography variant="body1" sx={{ marginBottom: '10px' }}>
+                  <strong>Salary:</strong> {selectedJob.minsalary} - {selectedJob.maxsalary}
+                </Typography>
+                <Typography variant="body1" sx={{ marginBottom: '10px' }}>
+                  <strong>Employee Type:</strong> {selectedJob.emptype}
+                </Typography>
+                <Typography variant="body1" sx={{ marginBottom: '10px' }}>
+                  <strong>Skill Sets Required:</strong> {selectedJob.skills.join(', ')}
+                </Typography>
+                <Typography variant="body1" sx={{ marginBottom: '10px' }}>
+                  <strong>Description:</strong> {selectedJob.description}
+                </Typography>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  sx={{ mt: 1, marginRight: '10px' }}
+                  onClick={() => handleEdit(selectedJob._id)}
+                >
+                  Edit
+                </Button>
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  sx={{ mt: 1 }}
+                  onClick={() => handleDelete(selectedJob._id)}
+                >
+                  Delete
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  onClick={() => handleCandidates(selectedJob._id)}
+                  style={{
+                    borderRadius: '20px',
+                    padding: '8px 16px',
+                    marginTop: '10px',
+                    textDecoration: 'none',
+                  }}
+                >
+                  Candidates
+                </Button>
+              </Box>
+            )}
+          </Grid>
         </Grid>
-        <Box className="flex flex-wrap justify-center" style={{ marginLeft: '200px', marginTop: '-380px' }} >
-          {currentPosts.map((job) => (
-            <Card key={job._id} className="w-full sm:w-1/2 md:w-1/3 lg:w-1/2 xl:w-1/3 2xl:w-1/3 m-4 shadow-md" style={{ borderRadius: "20px" }}>
-              <CardContent>
-                <Typography variant="h6" component="div">
-                  {job.jobrole}
-                </Typography>
-                <Typography color="textSecondary">
-                  {job.companyname}
-                </Typography>
-                <Typography>
-                  Experience: {job.minexperience} - {job.maxexperience} years
-                </Typography>
-                <Typography>
-                  Salary: ₹{job.minsalary} - ₹{job.maxsalary}
-                </Typography>
-                <Typography>
-                  Location: {job.joblocation}
-                </Typography>
-                <Typography>
-                  Employment Type: {job.emptype}
-                </Typography>
-                <Typography>
-                  Skills: {job.skills.join(', ')}
-                </Typography>
-
-                <div className="flex justify-between mt-4">
-                  <Button
-                    variant="outlined"
-                    color="primary"
-                    onClick={() => handleEdit(job._id)}
-                    style={{
-                      backgroundImage: 'linear-gradient(45deg, #004080 30%, #333333 90%)',
-                      color: 'white',
-                      borderRadius: '20px',
-                      padding: '8px 16px',
-                    }}
-                  >
-                    Edit
-                  </Button>
-
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    onClick={() => handleDelete(job._id)}
-                    style={{
-                      backgroundImage: 'linear-gradient(45deg, #B30000 30%, #333333 90%)',
-                      color: 'white',
-                      borderRadius: '20px',
-                      padding: '8px 16px',
-                    }}
-                  >
-                    Delete
-                  </Button>
-
-                  <Button
-                    variant="outlined"
-                    color="primary"
-                    onClick={() => handleCandidates(job._id)}
-                    style={{
-                      borderRadius: '20px',
-                      padding: '8px 16px',
-                      marginTop: '10px',
-                      textDecoration: 'none',
-                    }}
-                  >
-                    Candidates
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </Box>
-        <Box sx={{ display: 'flex', justifyContent: 'center', marginTop: '20px' }}>
-          <Button
-            variant="outlined"
-            disabled={currentPage === 1}
-            onClick={() => paginate(currentPage - 1)}
-            style={{ margin: '0 5px' }}
-          >
-            Previous
-          </Button>
-          <Button
-            variant="outlined"
-            disabled={currentPosts.length < postsPerPage || jobpost.length === 0}
-            onClick={() => paginate(currentPage + 1)}
-            style={{ margin: '0 5px' }}
-          >
-            Next
-          </Button>
-        </Box>
-      </Container>
+      </Box>
+    </Box>
+  )}
+</Container>
     </Box>
   );
 }
 
+const Pagination = ({ currentPage, postsPerPage, totalPosts, paginate }: any) => {
+  const pageNumbers = [];
+
+  for (let i = 1; i <= Math.ceil(totalPosts / postsPerPage); i++) {
+    pageNumbers.push(i);
+  }
+
+  return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+      {pageNumbers.map((number) => (
+        <Button key={number} onClick={() => paginate(number)} variant={number === currentPage ? 'contained' : 'outlined'} sx={{ margin: '0 5px' }}>
+          {number}
+        </Button>
+      ))}
+    </Box>
+  );
+};
+
 export default Home;
+

@@ -38,6 +38,8 @@ function Candidate() {
       console.error('Error fetching applicant profile:', error);
     } finally {
       setLoadingProfile(false);
+      console.log(selectedApplicant,'---------');
+      
       setOpenDialog(true);
     }
   };
@@ -53,6 +55,8 @@ function Candidate() {
   const handlePdfDownload = (cvUrl: string) => {
     const anchor = document.createElement('a');
     anchor.href = cvUrl;
+    console.log("SAD",cvUrl);
+    
     anchor.download = 'resume.pdf';
     anchor.click();
 };

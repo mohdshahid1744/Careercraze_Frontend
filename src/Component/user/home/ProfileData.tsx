@@ -29,10 +29,13 @@ const ProfileData: React.FC<ProfileDataProps> = ({ open, onClose, fetchProfileDa
     enableReinitialize: true, 
     validationSchema: validationSchema,
     onSubmit: async (values) => {
+      console.log("VANOOO:",values);
+      
       try {
-        await axiosUserInstance.put(`/updateProfileData/${userId}`, values);
-       
+        const response=await axiosUserInstance.put(`/updateProfileData/${userId}`, values);
         
+       
+        console.log("API Response:", response.data);
         fetchProfileData();
         onClose();
       } catch (error) {
@@ -40,7 +43,10 @@ const ProfileData: React.FC<ProfileDataProps> = ({ open, onClose, fetchProfileDa
       }
     },
   });
+
   console.log("DSF",formik);
+  console.log("SDF",userId);
+  
   
 
   return (

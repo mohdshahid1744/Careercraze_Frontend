@@ -19,6 +19,9 @@ const Job = () => {
   const user = useSelector((state: RootState) => state.user.UserId);
   const jobPosts = useSelector((state: RootState) => state.job.jobs);
 
+  
+  
+
   useEffect(() => {
     const fetchJobs = async () => {
       try {
@@ -38,7 +41,7 @@ const Job = () => {
     localStorage.removeItem('userToken');
     navigate('/');
   };
-
+ 
   const handleSavedjob = () => {
     navigate("/saved-jobs");
   };

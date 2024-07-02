@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { axiosRecruiterInstance, axiosUserInstance } from '../../../utils/axios/Axios';
 import { useDispatch, useSelector } from 'react-redux';
-import { Box, Typography, Grid, AppBar, Toolbar, Button } from '@mui/material';
+import { Box, Typography, Grid, AppBar, Toolbar, Button,Avatar,Menu, MenuItem, IconButton } from '@mui/material';
 import { useParams } from 'react-router-dom';
 import { PlusCircleIcon, PencilIcon } from '@heroicons/react/solid';
 import { userLogout } from '../../../Redux/Slice/userSlice';
@@ -13,12 +13,22 @@ import ProfileData from './ProfileData';
 import SkillEditModal from './SkillEditModal';
 import EducationEditModal from './EducationEditModal';
 import ExperienceEditModal from './ExperienceEditModal';
+import PostEditModal from './EditPostModal';
 import { RootState } from '../../../Redux/Store/Store';
-
+import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1';
+import MessageIcon from '@mui/icons-material/Message';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import { formatDistanceToNow } from 'date-fns';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+;
 function Profile() {
   const [userDetails, setUserDetails] = useState<any>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [posts, setPosts] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBannerModalOpen, setIsBannerModalOpen] = useState(false);
   const [isEducationModalOpen, setIsEducationModalOpen] = useState(false);
   const [isExperienceModalOpen, setIsExperienceModalOpen] = useState(false);
   const [isSkillModalOpen, setIsSkillModalOpen] = useState(false);
@@ -27,16 +37,53 @@ function Profile() {
   const [isEducationDataOpen, setIsEducationDataOpen] = useState(false);
   const [isExperienceDataOpen, setIsExperienceDataOpen] = useState(false);
   const [selectedSkill, setSelectedSkill] = useState<{ _id: string; skill: string } | null>(null);
+  const [selectedBannerFile, setSelectedBannerFile] = useState<File | null>(null);
   const [selectedEducation, setSelectedEducation] = useState<{ _id: string; school: string, degree: string, field: string, started: Date, ended: Date } | null>(null);
   const [selectedExperience, setSelectedExperience] = useState<{ _id: string;  company: string, role: string, started: Date, ended: Date } | null>(null);
+  const [visiblePosts, setVisiblePosts] = useState(2); 
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [isPostModalOpen, setIsPostModalOpen] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<any>(null);
+  
+  const handleMenuClick = (event:any) => {
+    setAnchorEl(event.currentTarget);
+  };
 
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+  const handleDelete = async (postId:string) => {
+    try {
+      const response = await axiosUserInstance.post('/delete', { postId});
+      console.log('Delete Post Response:', response.data);
+      setPosts(posts.filter(post => post._id !== postId)); 
+      fetchUserPosts();
+      setAnchorEl(null);
+    } catch (error) {
+      console.error('Error deleting post:', error);
+    }
+  };
+  const handleEdit = (post: any) => {
+    setSelectedPost(post);
+    setIsPostModalOpen(true);
+  };
+
+  const showMorePosts = () => {
+    setVisiblePosts((prevVisiblePosts) => prevVisiblePosts + 2); 
+  };
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { id } = useParams<{ id: string }>();
-
+  console.log("IDDDDD",id);
+  
+  const loggedInUserId = useSelector((state: RootState) => state.user.UserId);
+  console.log("LOGGG",loggedInUserId);
+  
   const fetchUserProfile = async () => {
     try {
       const response = await axiosUserInstance.get(`/getuser/${id}`);
+      console.log("SFDss",response.data);
+      
       setUserDetails(response.data.response);
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -45,6 +92,7 @@ function Profile() {
 
   useEffect(() => {
     fetchUserProfile();
+    fetchUserPosts();
   }, [id]);
 
   const handleUpdateProfile = () => {
@@ -80,58 +128,6 @@ function Profile() {
     setSelectedSkill(skills);
     console.log("Selected Skill:", skills);
   };
-
-  const handleEducationSubmit = async (education: { school: string; degree: string; field: string; started: Date; ended: Date }) => {
-    try {
-      const response = await axiosUserInstance.put(`/updateEducation/${id}`, education);
-      setUserDetails((prevDetails: any) => {
-        if (!prevDetails) return null;
-        return {
-          ...prevDetails,
-          education: [...prevDetails.education, response.data],
-        };
-      });
-    } catch (error) {
-      console.error('Error adding education:', error);
-    } finally {
-      setIsEducationModalOpen(false);
-    }
-  };
-
-  const handleExperienceSubmit = async (experience: { company: string; role: string; started: Date; ended: Date }) => {
-    try {
-      const response = await axiosUserInstance.put(`/updateExperience/${id}`, experience);
-      setUserDetails((prevDetails: any) => {
-        if (!prevDetails) return null;
-        return {
-          ...prevDetails,
-          experience: [...prevDetails.experience, response.data],
-        };
-      });
-    } catch (error) {
-      console.error('Error adding experience:', error);
-    } finally {
-      setIsExperienceModalOpen(false);
-    }
-  };
-
-  const handleSkillSubmit = async (skills: { skill: string }) => {
-    try {
-      const response = await axiosUserInstance.put(`/updateSkill/${id}`, skills);
-      setUserDetails((prevDetails: any) => {
-        if (!prevDetails) return null;
-        return {
-          ...prevDetails,
-          skills: [...prevDetails.skills, response.data],
-        };
-      });
-    } catch (error) {
-      console.error('Error adding skills:', error);
-    } finally {
-      setIsSkillModalOpen(false);
-    }
-  };
-
   const handleJob = () => {
     navigate('/job');
   };
@@ -153,6 +149,12 @@ function Profile() {
     }
   };
 
+  const handleBannerFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files.length > 0) {
+      setSelectedBannerFile(event.target.files[0]);
+      setIsBannerModalOpen(true);
+    }
+  };
   const handleFileUpload = async () => {
     if (!selectedFile) return;
 
@@ -165,16 +167,71 @@ function Profile() {
           'Content-Type': 'multipart/form-data',
         },
       });
+      console.log("RESP",response.data.updateUser.avatar);
+      
       setUserDetails((prevDetails: any) => ({
         ...prevDetails,
-        avatar: response.data.avatarUrl,
+        avatar: response.data.updateUser.avatar,
       }));
       setIsModalOpen(false);
     } catch (error) {
       console.error('Error uploading file:', error);
     }
   };
+  const fetchUserPosts = async () => {
+    try {
+      const response = await axiosUserInstance.get(`/getpost/${id}`);
+      console.log("RESPAS",response.data.posts);
+      
+      setPosts(response.data.posts);
+    } catch (error) {
+      console.error('Error fetching user posts:', error);
+    }
+  };
+  const handleBannerUpload=async ()=>{
+    console.log("ASD");
+    console.log("SALA",selectedBannerFile);
+    
+    if (!selectedBannerFile) return;
 
+    const formData = new FormData();
+    formData.append('banner', selectedBannerFile);
+    console.log("FORM",formData);
+    
+    try {
+      const response = await axiosUserInstance.put(`/updateBanner/${id}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      console.log("RESP",response.data.updateUser.banner);
+      
+      setUserDetails((prevDetails: any) => ({
+        ...prevDetails,
+        avatar: response.data.updateUser.banner,
+      }));
+      setIsBannerModalOpen(false);
+    } catch (error) {
+      console.error('Error uploading file:', error);
+    }
+  }
+  const handleFollow = async () => {
+    try {
+      await axiosUserInstance.get(`/follow/${loggedInUserId}/${id}`);
+      fetchUserProfile();
+    } catch (error) {
+      console.error('Error following user:', error);
+    }
+  };
+
+  const handleUnfollow = async () => {
+    try {
+      await axiosUserInstance.get(`/unfollow/${loggedInUserId}/${id}`);
+      fetchUserProfile(); 
+    } catch (error) {
+      console.error('Error unfollowing user:', error);
+    }
+  };
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: 'beige' }}>
       <AppBar position="static" sx={{ height: '85px', backgroundColor: 'white' }}>
@@ -233,20 +290,45 @@ function Profile() {
             mb: 4
           }}
         >
-          <img src="../../../Images/banner.png" alt="Banner" className="w-full mb-4 rounded-lg" style={{ height: "250px" }} />
+          {userDetails && (
+                   <div style={{ position: 'relative' }}>
+                   <input
+                     accept="image/*"
+                     type="file"
+                     id="banner-upload"
+                     style={{ display: 'none' }}
+                     onChange={handleBannerFileChange}
+                   />
+                   <img
+                     src={userDetails.banner}
+                     alt="Banner"
+                     style={{ width: '100%', height: 'auto', objectFit: 'cover', maxHeight: '200px' }}
+                   />
+                   {id === loggedInUserId && (
 
+                   <PencilIcon
+                     className="w-5 h-5 text-green-500 bg-white rounded-full border-2 border-white cursor-pointer"
+                     style={{ position: 'absolute', bottom: '10px', right: '10px' }}
+                     onClick={() => document.getElementById('banner-upload')?.click()}
+                   />
+                   )}
+                 </div>
+          )}
           {userDetails && (
             <div className="relative flex items-start">
+            
               <div className="absolute -top-[25%] transform -translate-y-1/2 left-5 flex flex-col items-center mb-6">
                 <div className="relative">
                   <img src={userDetails?.avatar} alt="Avatar" className="w-20 h-20 rounded-full mb-2 border-2 border-white" />
+                  {id === loggedInUserId && (
                   <PlusCircleIcon
                     className="w-5 h-5 absolute bottom-0 right-0 text-green-500 bg-white rounded-full border-2 border-white cursor-pointer"
-                    onClick={() => document.getElementById('avatarInput')?.click()}
+                    onClick={() => document.getElementById('avatar')?.click()}
                   />
+                  )}
                   <input
                     type="file"
-                    id="avatarInput"
+                    id="avatar"
                     style={{ display: 'none' }}
                     onChange={handleFileChange}
                   />
@@ -255,10 +337,12 @@ function Profile() {
               <div className="ml-5 mt-4">
                 <div className="flex items-center">
                   <Typography variant="h5">{userDetails?.name}</Typography>
+                  {id === loggedInUserId && (
                   <PencilIcon
                     className="w-6 h-6 ml-2 text-gray-500 cursor-pointer"
                     onClick={handleUpdateProfile}
                   />
+                  )}
                 </div>
                 <Typography variant="subtitle1">{userDetails?.title}</Typography>
                 <Typography variant="subtitle1">{userDetails?.email}</Typography>
@@ -270,6 +354,64 @@ function Profile() {
             <div>
               <button onClick={handleFileUpload}>Upload Avatar</button>
             </div>
+          )}
+           {isBannerModalOpen && (
+            <div>
+              <button onClick={handleBannerUpload}>Upload Banner</button>
+            </div>
+          )}
+          <Box sx={{ mt: 4, display: 'flex', justifyContent: 'space-around' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <PeopleOutlineIcon sx={{ mr: 1, color: 'black' }} />
+              <Typography variant="subtitle1" sx={{ mr: 1 }}>
+                Following
+              </Typography>
+              <Avatar sx={{ bgcolor: 'primary.main', width: 24, height: 24, fontSize: '0.8rem' }}>
+                {userDetails?.following.length || 0}
+              </Avatar>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <PersonAddIcon sx={{ mr: 1, color: 'black' }} />
+              <Typography variant="subtitle1" sx={{ mr: 1 }}>
+                Followers
+              </Typography>
+              <Avatar sx={{ bgcolor: 'primary.main', width: 24, height: 24, fontSize: '0.8rem' }}>
+                {userDetails?.followers.length || 0}
+              </Avatar>
+            </Box>
+          </Box>
+          {id !== loggedInUserId && (
+            <Box sx={{ mt: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
+              {userDetails?.followers.includes(loggedInUserId) ? (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<PersonAddAlt1Icon />}
+                  onClick={handleUnfollow}
+                  sx={{ textTransform: 'none', boxShadow: 3 }}
+                >
+                  Unfollow
+                </Button>
+              ) : (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<PersonAddAlt1Icon />}
+                  onClick={handleFollow}
+                  sx={{ textTransform: 'none', boxShadow: 3 }}
+                >
+                  Follow
+                </Button>
+              )}
+              <Button
+                variant="outlined"
+                color="primary"
+                startIcon={<MessageIcon />}
+                sx={{ textTransform: 'none', boxShadow: 3 }}
+              >
+                Message
+              </Button>
+            </Box>
           )}
         </Box>
 
@@ -296,10 +438,12 @@ function Profile() {
                       <Typography variant="subtitle2">{edu.degree} in {edu.field}</Typography>
                       <Typography variant="subtitle2">{new Date(edu.started).toLocaleDateString()} - {new Date(edu.ended).toLocaleDateString()}</Typography>
                     </div>
+                    {id === loggedInUserId && (
                     <PencilIcon
                       className="w-6 h-6 text-gray-500 cursor-pointer"
                       onClick={() => handleEditEducation(edu)}
                     />
+                    )}
                   </div>
                 ))
               ) : (
@@ -307,10 +451,12 @@ function Profile() {
                   No education details provided.
                 </Typography>
               )}
+               {id === loggedInUserId && (
               <PlusCircleIcon
                 className="w-6 h-6 text-blue-500 cursor-pointer absolute right-4 bottom-4"
                 onClick={handleAddEducation}
               />
+               )}
             </Box>
             <Box
               sx={{
@@ -333,7 +479,9 @@ function Profile() {
         <Typography variant="subtitle1">{exp.role} at {exp.company}</Typography>
         <Typography variant="subtitle2">{new Date(exp.started).toLocaleDateString()} - {new Date(exp.ended).toLocaleDateString()}</Typography>
       </div>
+      {id === loggedInUserId && (
       <PencilIcon className="w-6 h-6 text-gray-500 cursor-pointer ml-2" onClick={() => handleEditExperience(exp)} />
+      )}
     </div>
   ))
 ) : (
@@ -342,11 +490,12 @@ function Profile() {
   </Typography>
 )}
 
-
+{id === loggedInUserId && (
               <PlusCircleIcon
                 className="w-6 h-6 text-blue-500 cursor-pointer absolute right-4 bottom-4"
                 onClick={handleAddExperience}
               />
+)}
             </Box>
             <Box
               sx={{
@@ -365,10 +514,12 @@ function Profile() {
                 userDetails.skills.map((skillObj: any, index: number) => (
                   <div key={index} className="mb-4 flex items-center justify-between">
                     <Typography variant="subtitle1">{skillObj.skill}</Typography>
+                    {id === loggedInUserId && (
                     <PencilIcon
                       className="w-5 h-5 text-gray-500 cursor-pointer"
                       onClick={() => handleEditSkill(skillObj)}
                     />
+                    )}
                   </div>
                 ))
               ) : (
@@ -376,28 +527,83 @@ function Profile() {
                   No skills provided.
                 </Typography>
               )}
+               {id === loggedInUserId && (
               <PlusCircleIcon
                 className="w-6 h-6 text-blue-500 cursor-pointer absolute right-4 bottom-4"
                 onClick={handleAddSkill}
               />
+               )}
             </Box>
+            <Box sx={{ padding: '20px', backgroundColor: '#f4f6f8', minHeight: '30vh',borderRadius: '8px',boxShadow: 3 }}>
+            <Typography variant="h6" sx={{ marginBottom: '10px' }}>Posts</Typography>
+      {posts.length > 0 ? (
+        posts.slice(0, visiblePosts).map((post) => (
+          <Box key={post._id} sx={{ marginBottom: '20px', padding: '16px', border: '1px solid #e0e0e0', borderRadius: '8px', backgroundColor: '#ffffff', boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24)', overflow: 'hidden', wordWrap: 'break-word', transition: 'all 0.3s ease-in-out', ':hover': { boxShadow: '0 4px 8px rgba(0,0,0,0.24), 0 4px 8px rgba(0,0,0,0.22)' } }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
+              <Avatar src={userDetails?.avatar} alt="User Avatar" sx={{ marginRight: '10px' }} />
+              <Box>
+                <Typography variant="body1" sx={{ fontWeight: 'bold' }}>{userDetails.name}</Typography>
+                <Typography variant="body2" color="textSecondary">
+                  {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
+                </Typography>
+              </Box>
+              {id === loggedInUserId && (
+
+              <Box sx={{ marginLeft: 'auto' }}>
+                <IconButton onClick={handleMenuClick}>
+                  <MoreVertIcon />
+                  <h2>{post._id}</h2>
+                </IconButton>
+                <Menu
+                  anchorEl={anchorEl}
+                  open={Boolean(anchorEl)}
+                  onClose={handleMenuClose}
+                >
+                  <h2>{post._id}</h2>
+                  <MenuItem onClick={() => handleEdit(post)}>Edit</MenuItem>
+                  <MenuItem onClick={() => handleDelete(post._id)}>Delete</MenuItem>
+                </Menu>
+              </Box>
+              )}
+            </Box>
+            <Typography variant="body1" sx={{ fontSize: '14px', marginBottom: '10px' }}>
+              {post.description}
+            </Typography>
+            <img src={post.image} alt={post.description} style={{ maxWidth: '100%', maxHeight: '400px', objectFit: 'cover', borderRadius: '8px' }} />
+          </Box>
+        ))
+      ) : (
+        <Typography variant="body1">No posts available.</Typography>
+      )}
+      {visiblePosts < posts.length && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: '20px' }}>
+          <Button onClick={showMorePosts} sx={{ textTransform: 'none', color: '#1976d2', fontWeight: 'bold', fontSize: '16px' }}>
+            Show all posts <ArrowForwardIcon sx={{ marginLeft: '8px' }} />
+          </Button>
+        </Box>
+      )}
+    </Box>
+  
           </>
         )}
       </div>
       <EducationModal
         open={isEducationModalOpen}
         onClose={() => setIsEducationModalOpen(false)}
-        onSubmit={handleEducationSubmit}
+        userId={id ?? ''} 
+        fetchProfileData={fetchUserProfile}
       />
       <ExperienceModal
         open={isExperienceModalOpen}
         onClose={() => setIsExperienceModalOpen(false)}
-        onSubmit={handleExperienceSubmit}
+        userId={id ?? ''} 
+        fetchProfileData={fetchUserProfile}
       />
-      <SkillModal
+       <SkillModal
         open={isSkillModalOpen}
         onClose={() => setIsSkillModalOpen(false)}
-        onSubmit={handleSkillSubmit}
+        userId={id ?? ''} 
+        fetchProfileData={fetchUserProfile}
       />
       <ProfileData
         open={isProfileDataOpen}
@@ -427,6 +633,12 @@ function Profile() {
         experienceDetails={selectedExperience}
         userId={id ?? ''}
       />
+       <PostEditModal
+            open={isPostModalOpen}
+            onClose={() => setIsPostModalOpen(false)}
+            fetchProfileData={fetchUserProfile}
+            postDetails={selectedPost}
+          />
     </Box>
   );
 }

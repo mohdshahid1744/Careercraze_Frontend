@@ -18,7 +18,13 @@ const validationSchema = yup.object({
     degree: yup.string().required('Degree is required'),
     field: yup.string().required('Field of study is required'),
     started: yup.date().required('Start date is required').nullable(),
-    ended: yup.date().required('End date is required').nullable(),
+    ended: yup.date()
+    .required('End date is required')
+    .nullable()
+    .min(
+      yup.ref('started'),
+      'End date cannot be before start date'
+    ),
 });
 
 const EducationEditModal: React.FC<EducationEditProps> = ({ open, onClose, fetchProfileData, educationDetails, userId }) => {

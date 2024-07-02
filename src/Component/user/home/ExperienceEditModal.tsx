@@ -17,7 +17,13 @@ const validationSchema = yup.object({
     company: yup.string().required('Company name is required'),
   role: yup.string().required('Role is required'),
   started: yup.date().required('Start date is required').nullable(),
-  ended: yup.date().required('End date is required').nullable(),
+  ended: yup.date()
+  .required('End date is required')
+  .nullable()
+  .min(
+    yup.ref('started'),
+    'End date cannot be before start date'
+  ),
 });
 
 const ExperienceEditModal: React.FC<ExperienceEditProps> = ({ open, onClose, fetchProfileData, experienceDetails, userId }) => {

@@ -32,7 +32,9 @@ const ProfileData: React.FC<ProfileDataProps> = ({ open, onClose, fetchProfileDa
     validationSchema: validationSchema,
     onSubmit: async (values) => {
       try {
-        await axiosUserInstance.put(`/recruiter/updateProfileData/${userId}`, values);
+        const response=await axiosUserInstance.put(`/recruiter/updateProfileData/${userId}`, values);
+        console.log("RES:",response);
+        
         fetchProfileData();
         onClose();
       } catch (error) {

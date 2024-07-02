@@ -20,7 +20,7 @@ import { useNavigate } from 'react-router-dom';
 import { adminLogout } from '../../Redux/Slice/adminSlice';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../Redux/Store/Store';
-
+import LogoutIcon from '@mui/icons-material/Logout';
 type User = {
   name: string;
   isActive: boolean;
@@ -54,11 +54,7 @@ function UserManagement() {
     try {
       const response = await axiosAdminInstance.put(`/user/${selectedUser.email}`);
       if (response.data && response.data.users) {
-        if (selectedUser.email === loggedInUserEmail) {
-          dispatch(userLogout());
-          localStorage.removeItem('userToken');
-          
-        }
+       
         setUsers(response.data.users);
       }
     } catch (error) {
@@ -87,6 +83,8 @@ function UserManagement() {
     { text: 'Dashboard', onClick: () => navigate('/admin/dashboard') },
     { text: 'User', onClick: () => navigate('/admin/user') },
     { text: 'Recruiter', onClick: () => navigate('/admin/recruiter') },
+    { text: 'Skill', onClick: () => navigate('/admin/skill') },
+    { text: 'Post', onClick: () => navigate('/admin/post') },
   ];
 
   return (
@@ -113,7 +111,7 @@ function UserManagement() {
             <Typography variant="h6" className="flex-grow">
               User Management
             </Typography>
-            <Button color="inherit" onClick={handleLogout}>
+            <Button color="inherit" onClick={handleLogout} startIcon={<LogoutIcon />}>
               Logout
             </Button>
           </Toolbar>

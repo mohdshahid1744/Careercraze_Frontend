@@ -3,13 +3,14 @@ import { Button, TextField, Typography, Box, Alert } from '@mui/material';
 import { useNavigate, Link } from "react-router-dom";
 import { useFormik } from "formik";
 import * as yup from "yup";
-import axios, { AxiosError } from 'axios';
+import axios from 'axios';
 import { axiosUserInstance } from '../../../utils/axios/Axios';
 import { useDispatch } from 'react-redux';
 import { CredentialResponse, GoogleLogin } from "@react-oauth/google";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { userLogin } from '../../../Redux/Slice/userSlice';
 import { adminLogin } from '../../../Redux/Slice/adminSlice';
+import { jwtDecode,JwtPayload } from 'jwt-decode';
 
 const validationSchema = yup.object({
   email: yup
@@ -25,30 +26,37 @@ const validationSchema = yup.object({
 function Login() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const clientId='583058367283-v8k2j9i94eimjrr00e14df631d089j42.apps.googleusercontent.com'
+  const clientId = '583058367283-v8k2j9i94eimjrr00e14df631d089j42.apps.googleusercontent.com';
   const [errorMessage, setErrorMessage] = useState('');
   const handleJoin = () => {
     navigate('/register');
   }
-  const handleGoogleLoginSuccess = async (
-    credentialResponse: CredentialResponse
-  ) => {
+  
+  const handleGoogleLoginSuccess = async (credentialResponse: CredentialResponse) => {
     const { credential } = credentialResponse;
   
     try {
       const response = await axiosUserInstance.post("/google-login", {
         credential,
       });
-  console.log("SFDD",response);
   
       if (response.status === 200) {
         const token = response.data.token;
-  
         localStorage.setItem("userToken", token);
-        dispatch(userLogin({ userEmail: response.data.email, token })); 
+        const decodedToken = jwtDecode<{ email: string ,userId:string} & JwtPayload>(token);
+        const email = decodedToken.email;
+        const _id = decodedToken.userId;
+        if (!email) {
+          console.error("Email not found in token.");
+          setErrorMessage("Failed to extract email from the token.");
+          return;
+        }
+  
+        dispatch(userLogin({ userEmail: email,_id }));
   
         navigate("/home");
-        console.error("Failed to store user data in the database.");
+      } else {
+        setErrorMessage("Failed to store user data in the database.");
       }
     } catch (error) {
       console.error("Error while processing Google login:", error);
@@ -67,7 +75,8 @@ function Login() {
   
         if (response.status === 200) {
           const { isAdmin, token, _id, isActive } = response.data;
-  
+          console.log("RESDA", response.data);
+          
           if (!isActive) {
             setErrorMessage('User Blocked');
             return;
@@ -79,13 +88,13 @@ function Login() {
             navigate('/admin/dashboard', { state: values });
           } else {
             localStorage.setItem('userToken', token);
-            dispatch(userLogin({ userEmail: values.email, token, _id }));
+            dispatch(userLogin({ userEmail: values.email, token, _id ,isActive }));
             navigate('/home', { state: values });
           }
         } else if (response.status === 400) {
           setErrorMessage(response.data.message);
         }
-      } catch (error: unknown) {
+      } catch (error) {
         if (axios.isAxiosError(error)) {
           console.error('Error during login:', error);
           if (error.response?.status === 403) {
@@ -100,7 +109,6 @@ function Login() {
     },
   });
   
-
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-200">
       <Box
@@ -175,7 +183,7 @@ function Login() {
               <div className="w-28 border-t border-gray-300"></div>
             </div>
             <GoogleOAuthProvider clientId={clientId}>
-              <div style={{ maxWidth: '320px', border: '1px solid black',borderRadius:"5px" }}>
+              <div style={{ maxWidth: '320px', border: '1px solid black', borderRadius: "5px" }}>
                 <GoogleLogin
                   onSuccess={handleGoogleLoginSuccess}
                   onError={() => {
@@ -185,7 +193,6 @@ function Login() {
               </div>
             </GoogleOAuthProvider>
 
-
             <Button
               className="w-80 md:w-88 mb-4"
               sx={{
@@ -194,7 +201,7 @@ function Login() {
                 borderRadius: '5px',
                 border: '1px solid black',
                 textTransform: 'none',
-                marginTop:'10px'
+                marginTop: '10px'
               }}
               onClick={handleJoin}
             >
