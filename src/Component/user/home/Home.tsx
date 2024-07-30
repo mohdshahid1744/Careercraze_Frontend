@@ -740,7 +740,7 @@ const handleNewClose=()=>{
                   <DialogTitle>Report Post</DialogTitle>
                   <DialogContent>
                     <DialogContentText>
-                      Please select a reason for reporting this post.
+                      Please select a reason for 
                     </DialogContentText>
                     <FormControl fullWidth margin="dense">
                       <InputLabel>Reason</InputLabel>
