@@ -3,10 +3,9 @@ import { axiosRecruiterInstance } from '../../../utils/axios/Axios';
 import { axiosUserInstance } from '../../../utils/axios/Axios';
 import { useParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { Box, Typography, CircularProgress, Button } from '@mui/material';
+import { Box, Typography, CircularProgress, Button, Grid, Paper, Chip } from '@mui/material';
 import ApplyModal from './ApplyModal';
 import { RootState } from '../../../Redux/Store/Store';
-
 
 function SingleJob() {
   const [jobDetails, setJobDetails] = useState<any>(null);
@@ -76,48 +75,66 @@ function SingleJob() {
 
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: 'beige', padding: '20px' }}>
-      <Typography variant="h4" component="h1" gutterBottom>
+      <Typography variant="h4" component="h1" gutterBottom sx={{ textAlign: 'center' }}>
         Job Details
       </Typography>
-      <Box sx={{ padding: '20px', backgroundColor: 'white', borderRadius: '20px', maxWidth: '800px', margin: '0 auto' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-          <Typography variant="h6" component="div">
-            {jobDetails.jobrole}
-          </Typography>
-        </Box>
-        <Typography color="textSecondary">
-          {jobDetails.companyname}
-        </Typography>
-        <Typography>
-          Experience: {jobDetails.minexperience} - {jobDetails.maxexperience} years
-        </Typography>
-        <Typography>
-          Salary: ₹{jobDetails.minsalary} - ₹{jobDetails.maxsalary}
-        </Typography>
-        <Typography>
-          Location: {jobDetails.joblocation}
-        </Typography>
-        <Typography>
-          Employment Type: {jobDetails.emptype}
-        </Typography>
-        <Typography>
-          Skills: {jobDetails.skills.join(', ')}
-        </Typography>
-        <Typography>
-          Description: {jobDetails.description}
-        </Typography>
-        <Box sx={{ margin: 'auto 0' }}>
-          {hasApplied ? (
-            <Button variant="contained" color="primary" style={{ marginTop: '30px' }} disabled>
-              Applied
-            </Button>
-          ) : (
-            <Button variant="contained" color="primary" style={{ marginTop: '30px' }} onClick={handleApply}>
-              Apply
-            </Button>
-          )}
-        </Box>
-      </Box>
+      <Paper elevation={3} sx={{ padding: '20px', borderRadius: '20px', maxWidth: '800px', margin: '0 auto' }}>
+        <Grid container spacing={2}>
+          <Grid item xs={12}>
+            <Typography variant="h5" component="div" gutterBottom>
+              {jobDetails.jobrole}
+            </Typography>
+            <Typography color="textSecondary" gutterBottom>
+              {jobDetails.companyname}
+            </Typography>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Typography>
+              <strong>Experience:</strong> {jobDetails.minexperience} - {jobDetails.maxexperience} years
+            </Typography>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Typography>
+              <strong>Salary:</strong> ₹{jobDetails.minsalary} - ₹{jobDetails.maxsalary}
+            </Typography>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Typography>
+              <strong>Location:</strong> {jobDetails.joblocation}
+            </Typography>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Typography>
+              <strong>Employment Type:</strong> {jobDetails.emptype}
+            </Typography>
+          </Grid>
+          <Grid item xs={12}>
+            <Typography>
+              <strong>Skills:</strong>
+            </Typography>
+            {jobDetails.skills.map((skill: string, index: number) => (
+              <Chip key={index} label={skill} sx={{ margin: '5px' }} />
+            ))}
+          </Grid>
+          <Grid item xs={12}>
+            <Typography>
+              <strong>Description:</strong>
+            </Typography>
+            <Typography>{jobDetails.description}</Typography>
+          </Grid>
+          <Grid item xs={12}>
+            {hasApplied ? (
+              <Button variant="contained" color="primary" style={{ marginTop: '30px' }} disabled>
+                Applied
+              </Button>
+            ) : (
+              <Button variant="contained" color="primary" style={{ marginTop: '30px' }} onClick={handleApply}>
+                Apply
+              </Button>
+            )}
+          </Grid>
+        </Grid>
+      </Paper>
       <ApplyModal
         open={isApplyModalOpen}
         onClose={() => setIsApplyModalOpen(false)}
@@ -128,4 +145,3 @@ function SingleJob() {
 }
 
 export default SingleJob;
-

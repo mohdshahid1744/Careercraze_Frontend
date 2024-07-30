@@ -6,7 +6,7 @@ import {
   TextField, Card, CardContent, IconButton, TextareaAutosize,
   Avatar, Modal, Backdrop,Paper,List,ListItem,ListItemAvatar,ListItemText,Menu,MenuItem,
   Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
-  FormControl, InputLabel,Select
+  FormControl, InputLabel,Select,Divider
 } from '@mui/material';
 import { userLogout } from '../../../Redux/Slice/userSlice';
 import { RootState } from '../../../Redux/Store/Store';
@@ -16,10 +16,11 @@ import ThumbUpAltIcon from '@mui/icons-material/ThumbUpAlt';
 import { axiosUserInstance } from '../../../utils/axios/Axios';
 import CommentIcon from '@mui/icons-material/Comment';
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
-import ThumbDownAltIcon from '@mui/icons-material/ThumbDownAlt';
 import { formatDistanceToNow } from 'date-fns';
 import { debounce } from 'lodash';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
+import ConfirmationModal from './ConfimationModal';
+import ReplyIcon from '@mui/icons-material/Reply';
+import socket from '../../../utils/Socket/Soket';
 
 interface Post {
   _id: string;
@@ -38,6 +39,7 @@ interface Post {
   comments: {
     userId: string;
     message: string;
+    username:string;
   }[];
 }
 
@@ -45,7 +47,9 @@ interface Comment {
   _id: string;
   userId: string;
   message: string;
+  username:string;
   createdAt: string;
+  replies?: { message: string,username:string,createdAt: string; }[]; 
 }
 
 
@@ -65,14 +69,24 @@ function Home() {
   const [image, setImage] = useState<File | null>(null);
   const [userDetails, setUserDetails] = useState<any>(null);
   const [commentText, setCommentText] = useState<{ [key: string]: string }>({});
-  const [comments, setComments] = useState<{ [key: string]: Comment[] }>({});
+  const [comments, setComments] = useState<{ [key: string]: Comment[] }>({});;
+  
 const [commentVisibility, setCommentVisibility] = useState<{ [key: string]: boolean }>({});
 const [searchText, setSearchText] = useState('');
 const [searchResults, setSearchResults] = useState<any[]>([]);
+const [searchRecruiterResults, setSearchRecruiterResults] = useState<any[]>([]);
 const [searchOpen, setSearchOpen] = useState(false);
 const [reportReason, setReportReason] = useState('');
 const [openDialog, setOpenDialog] = useState(false);
 const [reportingPostId, setReportingPostId] = useState('');
+const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+const [deleteCommentInfo, setDeleteCommentInfo] = useState({ postId: '', commentId: '' });
+const [commentOptions, setCommentoptions] = useState(false);
+const [commentId, setCommentId] = useState('');
+const [replyText, setReplyText] = useState('');
+const [replyingTo, setReplyingTo] = useState(null);
+const [expandedReplies, setExpandedReplies] = useState<{ [key: string]: boolean }>({}); 
+const [commentCounts,setCommentCounts]=useState<number>(0)
 
 
 const fetchPosts = async () => {
@@ -139,7 +153,9 @@ console.log("POA",posts);
       await fetchComments(postId);
     }
   };
-    
+  const handleReplyClick = (commentId:any) => {
+    setReplyingTo(commentId);
+  };
   const fetchUserProfile = async () => {
     try {
       const response = await axiosUserInstance.get(`/getuser/${userId}`);
@@ -155,9 +171,11 @@ console.log("POA",posts);
     fetchUserProfile();
   }, [userId]);
 
-  const handleLogout = () => {
+  const handleLogout = async() => {
     dispatch(userLogout());
     localStorage.removeItem('userToken');
+    await axiosUserInstance.post('/logout',{userId})
+    socket.emit('logout', userId);
     navigate('/');
   };
 
@@ -234,7 +252,9 @@ console.log("NEWWWW",newPost);
     setReportingPostId(_id);
     setOpenDialog(true);
   };
-
+const handleChat=()=>{
+  navigate('/chat')
+}
   const handleDialogClose = () => {
     setOpenDialog(false);
     setReportReason('');
@@ -278,7 +298,12 @@ console.log("NEWWWW",newPost);
       console.error('Error toggling like:', error);
     }
   };
-
+  const handleToggleReplies = (commentId:any) => {
+    setExpandedReplies((prevState:any) => ({
+      ...prevState,
+      [commentId]: !prevState[commentId],
+    }));
+  };
   const handleClose = () => {
     setOpen(false);
     setSelectedPost(null);
@@ -323,8 +348,12 @@ const handleNewClose=()=>{
     }
 
     try {
-      const response = await axiosUserInstance.post('/comment', { userId, postId, comment: text });
-      console.log("SDG",response);
+      const userDataResponse = await axiosUserInstance.get(`/getuser/${userId}`); 
+      const username = userDataResponse.data.response.name;
+      console.log("SDFSDF",username);
+      
+      const response = await axiosUserInstance.post('/comment', { userId, postId, comment: text,username});
+      console.log("SDGggggggggggggggggggggggggggg",response);
       if (response.data.message) {
         setPosts((prevPosts) =>
           prevPosts.map((post: any) =>
@@ -339,15 +368,42 @@ const handleNewClose=()=>{
         console.log("RAARAFTHA",commentText);
         
       }
+      setCommentCounts((prevCount) => prevCount + 1);
     } catch (error) {
       console.error('Error posting comment:', error);
     }
   };
+
+  const handleReplyComment=async(parentCommentId:string)=>{
+    try {
+      const userDataResponse = await axiosUserInstance.get(`/getuser/${userId}`); 
+      const username = userDataResponse.data.response.name;
+      const response = await axiosUserInstance.post('/replycomment',{
+      postId: selectedPost?._id,
+      parentCommentId,
+      comment: replyText,
+      userId,
+      username
+    });
+    if (response.status===200) {
+      console.log('Reply added successfully');
+      setReplyText('');
+      setReplyingTo(null);
+      
+    } else {
+      console.error('Failed to add reply');
+    }
+    
+    } catch (error) {
+      
+    }
+  }
   const fetchSearchedUsers = async (text: string) => {
     try {
       const response = await axiosUserInstance.get(`/searchuser?text=${encodeURIComponent(text)}`);
-      console.log("Response from searchUser:", response.data.users.users);
+      console.log("Response from searchUser:", response.data);
       setSearchResults(response.data.users.users); 
+      setSearchRecruiterResults(response.data.users.recruiters)
     } catch (error) {
       console.error('Error fetching searched users:', error);
     }
@@ -372,7 +428,65 @@ const handleNewClose=()=>{
     navigate(`/profile/${userId}`);
     setSearchText(''); 
     setSearchResults([]); 
+    setSearchRecruiterResults([])
     setSearchOpen(false); 
+  };
+  const handleSearchRecruiterResultClick = (userId: string) => {
+    navigate(`/recProfile/${userId}`);
+    setSearchText(''); 
+    setSearchResults([]); 
+    setSearchRecruiterResults([])
+    setSearchOpen(false); 
+  };
+
+  const handleDeleteComment = async (postId: string, commentId: string) => {
+    try {
+      setDeleteCommentInfo({ postId, commentId });
+      setShowDeleteConfirmation(true);
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+    }
+  };
+  
+  const showOptions = (postId: string, commentId: string) => {
+    setCommentoptions(true);
+    setCommentId(commentId);
+  };
+  const confirmDeleteComment = async () => {
+    const { postId, commentId } = deleteCommentInfo;
+    try {
+      const response = await axiosUserInstance.delete('/deletecomment', {
+        data: {
+          postId: postId,
+          commentId: commentId,
+        },
+      });
+      console.log("Delete comment response:", response);
+      setComments((prevComments) => {
+        const updatedComments = { ...prevComments };
+        updatedComments[postId] = updatedComments[postId].filter((comment) => comment._id !== commentId);
+        return updatedComments;
+      });
+      setPosts((prevPosts) =>
+        prevPosts.map((post) => {
+          if (post._id === postId) {
+            const updatedComments = post.comments.filter(
+              (comment: any) => comment._id !== commentId
+            );
+            return {
+              ...post,
+              comments: updatedComments,
+            };
+          }
+          return post;
+        })
+      );
+      setCommentoptions(false);
+      setShowDeleteConfirmation(false);
+      setCommentCounts((prevCount) => prevCount - 1);
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+    }
   };
   const reasons = [
     { value: 'scam', label: 'Scam' },
@@ -421,24 +535,38 @@ const handleNewClose=()=>{
             />
             
             {searchOpen && (
-              <Paper sx={{ position: 'absolute', top: 55, left: 0, right: 0, maxHeight: '50vh', overflowY: 'auto', zIndex: 1200 }}>
-                <List>
-                  {searchResults.map((user) => (
-                    <ListItem 
-                      key={user._id} 
-                      component="div" 
-                      onClick={() => handleSearchResultClick(user._id)} 
-                      sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', textAlign: 'left' }}
-                    >
-                      <ListItemAvatar>
-                        <Avatar src={user.avatar} alt={user.name} />
-                      </ListItemAvatar>
-                      <ListItemText primary={user.name} secondary={user.title} />
-                    </ListItem>
-                  ))}
-                </List>
-              </Paper>
-            )}
+  <Paper sx={{ position: 'absolute', top: 55, left: 0, right: 0, maxHeight: '50vh', overflowY: 'auto', zIndex: 1200 }}>
+    <List>
+      {searchResults.map((user) => (
+        <ListItem 
+          key={user._id} 
+          component="div" 
+          onClick={() => handleSearchResultClick(user._id)} 
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', textAlign: 'left' }}
+        >
+          <ListItemAvatar>
+            <Avatar src={user.avatar} alt={user.name} />
+          </ListItemAvatar>
+          <ListItemText primary={user.name} secondary={user.title || 'User'} />
+        </ListItem>
+      ))}
+      {searchRecruiterResults.map((recruiter) => (
+        <ListItem 
+          key={recruiter._id} 
+          component="div" 
+          onClick={() => handleSearchRecruiterResultClick(recruiter._id)} 
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', textAlign: 'left' }}
+        >
+          <ListItemAvatar>
+            <Avatar src={recruiter.avatar} alt={recruiter.name} />
+          </ListItemAvatar>
+          <ListItemText primary={recruiter.name} secondary={recruiter.title || 'Recruiter'} />
+        </ListItem>
+      ))}
+    </List>
+  </Paper>
+)}
+
           </Box>
           <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center' }} >
             <Grid container spacing={2} justifyContent="center">
@@ -461,7 +589,7 @@ const handleNewClose=()=>{
                 </Button>
               </Grid>
               <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }}>
+                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleChat}>
                   <img src="../../../Images/message.png" alt="Message Icon" style={{ width: '30px', height: '30px' }} />
                   <Typography variant="caption">Message</Typography>
                 </Button>
@@ -489,7 +617,7 @@ const handleNewClose=()=>{
             New Box Title
           </Typography>
           <div className="flex items-center mb-4">
-            <Avatar className="w-10 h-10 mr-4" alt="User Avatar" src="/path-to-avatar.jpg" />
+            <Avatar className="w-10 h-10 mr-4"  alt={userDetails?.name} src={userDetails?.avatar} />
             <TextField
               id="description"
               label="Description"
@@ -552,6 +680,12 @@ const handleNewClose=()=>{
       <Typography variant="body2" sx={{ fontSize: '0.75rem', marginBottom: '5px' }}>
         {userDetails?.title}
       </Typography>
+      <Typography variant="body2" sx={{ fontSize: '0.75rem', marginBottom: '5px' }}>
+      followers : {userDetails?.followers.length || 0}
+      </Typography>
+      <Typography variant="body2" sx={{ fontSize: '0.75rem', marginBottom: '5px' }}>
+      following : {userDetails?.following.length || 0}
+      </Typography>
       <Box sx={{ borderBottom: '1px solid gray', margin: '10px 0' }} />
       {userDetails?.education?.map((edu: any) => (
         <Box key={edu._id} sx={{ marginBottom: '10px' }}>
@@ -602,40 +736,37 @@ const handleNewClose=()=>{
                   <Box sx={{ position: 'absolute', top: '10px', right: '10px' }}>
                   <Button onClick={() => handleReportClick(post._id)}>Report</Button>
                 </Box>
-  
-     
-      <Dialog open={openDialog} onClose={handleDialogClose}>
-      <DialogTitle>Report Post</DialogTitle>
-      <DialogContent>
-        <DialogContentText>
-          Please select a reason for reporting this post.
-        </DialogContentText>
-        <FormControl fullWidth margin="dense">
-          <InputLabel>Reason</InputLabel>
-          <Select
-            value={reportReason}
-            onChange={(e) => setReportReason(e.target.value)}
-            label="Reason"
-          >
-            {reasons.map((reason) => (
-              <MenuItem key={reason.value} value={reason.value}>
-                {reason.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={handleDialogClose} color="primary">
-          Cancel
-        </Button>
-        <Button onClick={() => handleReportSubmit(reportingPostId, reportReason)} color="primary" disabled={!reportReason}>
-          Submit
-        </Button>
-      </DialogActions>
-    </Dialog>
-                </Box>
-                      
+                  <Dialog open={openDialog} onClose={handleDialogClose}>
+                  <DialogTitle>Report Post</DialogTitle>
+                  <DialogContent>
+                    <DialogContentText>
+                      Please select a reason for reporting this post.
+                    </DialogContentText>
+                    <FormControl fullWidth margin="dense">
+                      <InputLabel>Reason</InputLabel>
+                      <Select
+                        value={reportReason}
+                        onChange={(e) => setReportReason(e.target.value)}
+                        label="Reason"
+                      >
+                        {reasons.map((reason) => (
+                          <MenuItem key={reason.value} value={reason.value}>
+                            {reason.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </DialogContent>
+                  <DialogActions>
+                    <Button onClick={handleDialogClose} color="primary">
+                      Cancel
+                    </Button>
+                    <Button onClick={() => handleReportSubmit(reportingPostId, reportReason)} color="primary" disabled={!reportReason}>
+                      Submit
+                    </Button>
+                  </DialogActions>
+                </Dialog>
+                </Box> 
                       <Typography variant="caption" style={{ color: "gray" }}>{post.user.title}</Typography>
 
                       <Typography variant="body1" sx={{ marginBottom: '10px', display: 'block', whiteSpace: 'pre-line' }} dangerouslySetInnerHTML={{ __html: isExpanded(post._id) ? post.description : truncateText(post.description, 100) }} />
@@ -651,9 +782,9 @@ const handleNewClose=()=>{
                       sx={{ padding: '5px', color: '#3f51b5' }}
                     >
                       {post.likes?.some((like) => like.userId === userId) ? (
-                        <ThumbDownAltIcon />
+                        <ThumbUpAltIcon sx={{ fontSize: '24px', color: 'blue' }}  />
                       ) : (
-                        <ThumbUpAltIcon />
+                        <ThumbUpAltIcon  sx={{ fontSize: '24px', color: 'gray' }}/>
                       )}
                       <Typography variant="body2">{post.likes?.length || 0} Likes</Typography>
                     </IconButton>
@@ -661,7 +792,7 @@ const handleNewClose=()=>{
                     <IconButton aria-label="comment" sx={{ padding: '5px', color: '#ff9800' }} onClick={() => handleCommentIconClick(post._id)}>
                     <CommentIcon onClick={() => handleNewOpen(post)} />
 
-                          <Typography variant="body2">{post.comments?.length || 0} </Typography>
+                          <Typography variant="body2">{commentCounts} </Typography>
                         </IconButton>
                       </Box>
                       <Box>
@@ -755,23 +886,132 @@ const handleNewClose=()=>{
           </Typography>
         </>
       )}
-{selectedPost && comments[selectedPost._id]?.map((comment, index) => (
-  <Box
-    key={index}
-    display="flex"
-    flexDirection={index % 2 == 0 ? 'row-reverse' : 'row'}
-    mb={2}
-    alignItems="center"
-  >
-   
-    <Box sx={{ p: 1, backgroundColor: '#f0f0f0', borderRadius: 2 }}>
-      <Typography variant="body2">{comment.message}</Typography>
-      <Typography variant="caption" color="textSecondary">
-        {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+{selectedPost &&
+  comments[selectedPost._id]?.map((comment, index) => (
+    <Box
+      key={index}
+      display="flex"
+      flexDirection={index % 2 === 0 ? 'row-reverse' : 'row'}
+      mb={2}
+      alignItems="center"
+    >
+      <Box
+        sx={{
+          p: 1,
+          backgroundColor: '#f0f0f0',
+          borderRadius: 2,
+          position: 'relative',
+        }}
+      >
+       <Typography variant="body1" sx={{ mb: 1 }}>
+        {comment?.username}
       </Typography>
+      <Typography variant="body2" sx={{ mb: 1, fontSize: '0.875rem', color: 'text.secondary' }}>
+        {comment.message}
+      </Typography>
+
+        <IconButton
+          sx={{
+            position: 'absolute',
+            top: 13,
+            right: 50,
+            transform: 'translate(50%, -50%)',
+          }}
+          onClick={() => handleReplyClick(comment._id)}
+        >
+          <ReplyIcon />
+        </IconButton>
+        {comment.userId === userId &&(
+
+        <Button
+          sx={{
+            position: 'absolute',
+            top: 13,
+            right: 15,
+            transform: 'translate(50%, -50%)',
+          }}
+          onClick={() => showOptions(selectedPost._id, comment._id)}
+        >
+          ...
+        </Button>
+        )}
+
+        <Typography variant="caption" color="textSecondary">
+          {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+        </Typography>
+
+        {replyingTo === comment._id && (
+          <div>
+            <TextField
+              multiline
+              rows={2}
+              variant="outlined"
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              fullWidth
+            />
+            <Button
+              variant="contained"
+              color="primary"
+              size="small"
+              sx={{ mt: 1 }}
+              onClick={() => handleReplyComment(comment._id)}
+            >
+              Reply
+            </Button>
+          </div>
+        )}
+
+        <Button
+          variant="text"
+          size="small"
+          onClick={() => handleToggleReplies(comment._id)}
+          sx={{ mt: 1 }}
+        >
+          {expandedReplies[comment._id] ? 'Hide Replies' : 'View Replies'}
+        </Button>
+
+        {expandedReplies[comment._id] && comment.replies && (
+          <Box sx={{ pl: 4, pt: 2 }}>
+            {comment.replies.map((reply, replyIndex) => (
+              
+              <Box key={replyIndex} mt={1}>
+              <Divider sx={{ mb: 1 }} />
+              <Typography variant="body1" sx={{ mb: 1 }}>
+                {reply?.username}
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1, fontSize: '0.875rem', color: 'text.secondary' }}>
+                {reply.message}
+              </Typography>
+              <Typography variant="caption" color="textSecondary">
+                {formatDistanceToNow(new Date(reply.createdAt), { addSuffix: true })}
+              </Typography>
+            </Box>
+            
+            ))}
+          </Box>
+        )}
+
+        {commentOptions && commentId === comment._id && (
+          <Button
+            variant="outlined"
+            color="error"
+            size="small"
+            onClick={() => handleDeleteComment(selectedPost._id, comment._id)}
+            sx={{ ml: 1 }}
+          >
+            Delete
+          </Button>
+        )}
+      </Box>
     </Box>
-  </Box>
-))}
+  ))}
+
+ <ConfirmationModal
+        show={showDeleteConfirmation}
+        onClose={() => setShowDeleteConfirmation(false)}
+        onConfirm={confirmDeleteComment}
+        message={"Are You sure You need to delete Comment"} />
     </CardContent>
   </Card>
 </Modal>

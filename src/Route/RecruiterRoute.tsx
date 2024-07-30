@@ -9,6 +9,7 @@ import CandidatePage from "../Pages/recruiter/CandidatePage";
 import ProfilePage from "../Pages/recruiter/ProfilePage";
 import PrivateRouterRecruiter from "../utils/RouteRecruiter/PrivateRecruiter";
 import PublicRouterRecruiter from "../utils/RouteRecruiter/PublicRecruiter";
+import UserProfilePage from "../Pages/recruiter/UserProfilePage";
 const RecruiterRoute=()=>{
     return(
         <Routes>
@@ -23,6 +24,7 @@ const RecruiterRoute=()=>{
             < Route path='/editjob/:id' element={< EditjobPage />} />
             < Route path='/candidates/:jobid' element={< CandidatePage />} />
             < Route path='/profile/:id' element={< ProfilePage />} />
+            < Route path='/userprofile/:id' element={< UserProfilePage />} />
             </Route>
         </Routes>
         

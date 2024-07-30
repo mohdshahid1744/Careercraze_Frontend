@@ -22,7 +22,7 @@ import MessageIcon from '@mui/icons-material/Message';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { formatDistanceToNow } from 'date-fns';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-;
+import Modal from './UserListModal';
 function Profile() {
   const [userDetails, setUserDetails] = useState<any>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -43,7 +43,14 @@ function Profile() {
   const [visiblePosts, setVisiblePosts] = useState(2); 
   const [anchorEl, setAnchorEl] = useState(null);
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
+  const [modalUserIds, setModalUserIds] = useState<string[]>([]);
+  const [modalUserId, setModalUserId] = useState<string[]>([]);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalTitles, setModalTitles] = useState('');
   const [selectedPost, setSelectedPost] = useState<any>(null);
+const [isFollowersModalOpen, setIsFollowersModalOpen] = useState(false);
+const [isFollowingModalOpen, setIsFollowingModalOpen] = useState(false);
+
   
   const handleMenuClick = (event:any) => {
     setAnchorEl(event.currentTarget);
@@ -77,7 +84,8 @@ function Profile() {
   console.log("IDDDDD",id);
   
   const loggedInUserId = useSelector((state: RootState) => state.user.UserId);
-  console.log("LOGGG",loggedInUserId);
+  const loggedInRecruiter = useSelector((state: RootState) => state.recruiter.UserId);
+  console.log("LOGGG",loggedInRecruiter);
   
   const fetchUserProfile = async () => {
     try {
@@ -204,6 +212,7 @@ function Profile() {
           'Content-Type': 'multipart/form-data',
         },
       });
+      
       console.log("RESP",response.data.updateUser.banner);
       
       setUserDetails((prevDetails: any) => ({
@@ -223,6 +232,14 @@ function Profile() {
       console.error('Error following user:', error);
     }
   };
+  const handleFollower = async () => {
+    try {
+      await axiosUserInstance.get(`/follow/${loggedInRecruiter}/${id}`);
+      fetchUserProfile();
+    } catch (error) {
+      console.error('Error following user:', error);
+    }
+  };
 
   const handleUnfollow = async () => {
     try {
@@ -232,200 +249,199 @@ function Profile() {
       console.error('Error unfollowing user:', error);
     }
   };
+  const handleUnfollower = async () => {
+    try {
+      await axiosUserInstance.get(`/unfollow/${loggedInRecruiter}/${id}`);
+      fetchUserProfile(); 
+    } catch (error) {
+      console.error('Error unfollowing user:', error);
+    }
+  };
+  const handleFollowersClick = () => {
+    try {
+      setIsFollowersModalOpen(true);
+      setModalUserIds(userDetails?.followers || []);
+      setModalTitle('Followers');
+    } catch (error) {
+      console.error('Error fetching followers:', error);
+    }
+};
+const handleFollowingClick = () => {
+  try {
+    setIsFollowingModalOpen(true);
+    setModalUserId(userDetails?.following || []);
+    setModalTitles('Followings');
+  } catch (error) {
+    console.error('Error fetching following:', error);
+  }
+    
+};
+
+  
+  
+  const handleCreatechat=async ()=>{
+    try {
+      await axiosUserInstance.get(`createchat/${loggedInUserId}/${id}`)
+      fetchUserProfile();
+      navigate('/chat')
+    } catch (error) {
+      console.error('Error creating chat user:', error);
+    }
+  }
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: 'beige' }}>
-      <AppBar position="static" sx={{ height: '85px', backgroundColor: 'white' }}>
-        <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            <img
-              src='../../../Images/logo.png'
-              alt="Logo"
-              className="w-16 h-auto absolute"
-              style={{ top: '10px', left: '50px' }}
+    
+    <div className="w-full max-w-5xl p-6 ml-0 lg:ml-[230px]">
+      <Box 
+  sx={{
+    p: { xs: 2, sm: 3, md: 4 },  
+    borderRadius: 2,
+    boxShadow: 3,
+    bgcolor: 'background.paper',
+    mb: 4,
+    width: { xs: '90%', sm: '80%', md: '70%', lg: '100%' },  
+    mx: 'auto', 
+  }}
+>
+  {userDetails && (
+    <div style={{ position: 'relative' }}>
+      <input
+        accept="image/*"
+        type="file"
+        id="banner-upload"
+        style={{ display: 'none' }}
+        onChange={handleBannerFileChange}
+      />
+      <img
+        src={userDetails.banner}
+        alt="Banner"
+        style={{ width: '100%', height: 'auto', objectFit: 'cover', maxHeight: '200px' }}
+      />
+      {id === loggedInUserId && (
+        <PencilIcon
+          className="w-5 h-5 text-green-500 bg-white rounded-full border-2 border-white cursor-pointer"
+          style={{ position: 'absolute', bottom: '10px', right: '10px' }}
+          onClick={() => document.getElementById('banner-upload')?.click()}
+        />
+      )}
+    </div>
+  )}
+  {userDetails && (
+    <div className="relative flex items-start">
+      <div className="absolute -top-[25%] transform -translate-y-1/2 left-5 flex flex-col items-center mb-6">
+        <div className="relative">
+          <img src={userDetails?.avatar} alt="Avatar" className="w-20 h-20 rounded-full mb-2 border-2 border-white" />
+          {id === loggedInUserId && (
+            <PlusCircleIcon
+              className="w-5 h-5 absolute bottom-0 right-0 text-green-500 bg-white rounded-full border-2 border-white cursor-pointer"
+              onClick={() => document.getElementById('avatar')?.click()}
             />
-          </Typography>
-          <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center' }}>
-            <Grid container spacing={2} justifyContent="center">
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleHome}>
-                  <img src="../../../Images/Home.png" alt="Home Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Home</Typography>
-                </Button>
-              </Grid>
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleJob}>
-                  <img src="../../../Images/Job.png" alt="Job Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Job</Typography>
-                </Button>
-              </Grid>
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleSavedjob}>
-                  <img src="../../../Images/savejob.png" alt="Job Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Save Job</Typography>
-                </Button>
-              </Grid>
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }}>
-                  <img src="../../../Images/message.png" alt="Message Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Message</Typography>
-                </Button>
-              </Grid>
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleLogout}>
-                  <img src="../../../Images/logout.png" alt="Logout Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Logout</Typography>
-                </Button>
-              </Grid>
-            </Grid>
-          </Box>
-        </Toolbar>
-      </AppBar>
-      <div className="w-full max-w-5xl p-6" style={{ marginLeft: "230px" }}>
-        <Box
-          sx={{
-            p: 4,
-            borderRadius: 2,
-            boxShadow: 3,
-            bgcolor: 'background.paper',
-            mb: 4
-          }}
-        >
-          {userDetails && (
-                   <div style={{ position: 'relative' }}>
-                   <input
-                     accept="image/*"
-                     type="file"
-                     id="banner-upload"
-                     style={{ display: 'none' }}
-                     onChange={handleBannerFileChange}
-                   />
-                   <img
-                     src={userDetails.banner}
-                     alt="Banner"
-                     style={{ width: '100%', height: 'auto', objectFit: 'cover', maxHeight: '200px' }}
-                   />
-                   {id === loggedInUserId && (
+          )}
+          <input
+            type="file"
+            id="avatar"
+            style={{ display: 'none' }}
+            onChange={handleFileChange}
+          />
+        </div>
+      </div>
+      <div className="ml-5 mt-4">
+        <div className="flex items-center">
+          <Typography variant="h5">{userDetails?.name}</Typography>
+          {id === loggedInUserId && (
+            <PencilIcon
+              className="w-6 h-6 ml-2 text-gray-500 cursor-pointer"
+              onClick={handleUpdateProfile}
+            />
+          )}
+        </div>
+        <Typography variant="subtitle1">{userDetails?.title}</Typography>
+        <Typography variant="subtitle1">{userDetails?.email}</Typography>
+        <Typography variant="subtitle1">{userDetails?.mobile}</Typography>
+      </div>
+    </div>
+  )}
+  {isModalOpen && (
+    <div>
+      <button onClick={handleFileUpload}>Upload Avatar</button>
+    </div>
+  )}
+  {isBannerModalOpen && (
+    <div>
+      <button onClick={handleBannerUpload}>Upload Banner</button>
+    </div>
+  )}
+  <Box sx={{ mt: 4, display: 'flex', justifyContent: 'space-around' }} onClick={handleFollowingClick}>
+    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+      <PeopleOutlineIcon sx={{ mr: 1, color: 'black' }} />
+      <Typography variant="subtitle1" sx={{ mr: 1 }}>
+        Following
+      </Typography>
+      <Avatar sx={{ bgcolor: 'primary.main', width: 24, height: 24, fontSize: '0.8rem' }}>
+        {userDetails?.following.length || 0}
+      </Avatar>
+    </Box>
+    <Box sx={{ display: 'flex', alignItems: 'center' }} onClick={handleFollowersClick}>
+      <PersonAddIcon sx={{ mr: 1, color: 'black' }} />
+      <Typography variant="subtitle1" sx={{ mr: 1 }}>
+        Followers
+      </Typography>
+      <Avatar sx={{ bgcolor: 'primary.main', width: 24, height: 24, fontSize: '0.8rem' }}>
+        {userDetails?.followers.length || 0}
+      </Avatar>
+    </Box>
+  </Box>
 
-                   <PencilIcon
-                     className="w-5 h-5 text-green-500 bg-white rounded-full border-2 border-white cursor-pointer"
-                     style={{ position: 'absolute', bottom: '10px', right: '10px' }}
-                     onClick={() => document.getElementById('banner-upload')?.click()}
-                   />
-                   )}
-                 </div>
-          )}
-          {userDetails && (
-            <div className="relative flex items-start">
-            
-              <div className="absolute -top-[25%] transform -translate-y-1/2 left-5 flex flex-col items-center mb-6">
-                <div className="relative">
-                  <img src={userDetails?.avatar} alt="Avatar" className="w-20 h-20 rounded-full mb-2 border-2 border-white" />
-                  {id === loggedInUserId && (
-                  <PlusCircleIcon
-                    className="w-5 h-5 absolute bottom-0 right-0 text-green-500 bg-white rounded-full border-2 border-white cursor-pointer"
-                    onClick={() => document.getElementById('avatar')?.click()}
-                  />
-                  )}
-                  <input
-                    type="file"
-                    id="avatar"
-                    style={{ display: 'none' }}
-                    onChange={handleFileChange}
-                  />
-                </div>
-              </div>
-              <div className="ml-5 mt-4">
-                <div className="flex items-center">
-                  <Typography variant="h5">{userDetails?.name}</Typography>
-                  {id === loggedInUserId && (
-                  <PencilIcon
-                    className="w-6 h-6 ml-2 text-gray-500 cursor-pointer"
-                    onClick={handleUpdateProfile}
-                  />
-                  )}
-                </div>
-                <Typography variant="subtitle1">{userDetails?.title}</Typography>
-                <Typography variant="subtitle1">{userDetails?.email}</Typography>
-                <Typography variant="subtitle1">{userDetails?.mobile}</Typography>
-              </div>
-            </div>
-          )}
-          {isModalOpen && (
-            <div>
-              <button onClick={handleFileUpload}>Upload Avatar</button>
-            </div>
-          )}
-           {isBannerModalOpen && (
-            <div>
-              <button onClick={handleBannerUpload}>Upload Banner</button>
-            </div>
-          )}
-          <Box sx={{ mt: 4, display: 'flex', justifyContent: 'space-around' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <PeopleOutlineIcon sx={{ mr: 1, color: 'black' }} />
-              <Typography variant="subtitle1" sx={{ mr: 1 }}>
-                Following
-              </Typography>
-              <Avatar sx={{ bgcolor: 'primary.main', width: 24, height: 24, fontSize: '0.8rem' }}>
-                {userDetails?.following.length || 0}
-              </Avatar>
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <PersonAddIcon sx={{ mr: 1, color: 'black' }} />
-              <Typography variant="subtitle1" sx={{ mr: 1 }}>
-                Followers
-              </Typography>
-              <Avatar sx={{ bgcolor: 'primary.main', width: 24, height: 24, fontSize: '0.8rem' }}>
-                {userDetails?.followers.length || 0}
-              </Avatar>
-            </Box>
-          </Box>
-          {id !== loggedInUserId && (
-            <Box sx={{ mt: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
-              {userDetails?.followers.includes(loggedInUserId) ? (
-                <Button
-                  variant="contained"
-                  color="primary"
-                  startIcon={<PersonAddAlt1Icon />}
-                  onClick={handleUnfollow}
-                  sx={{ textTransform: 'none', boxShadow: 3 }}
-                >
-                  Unfollow
-                </Button>
-              ) : (
-                <Button
-                  variant="contained"
-                  color="primary"
-                  startIcon={<PersonAddAlt1Icon />}
-                  onClick={handleFollow}
-                  sx={{ textTransform: 'none', boxShadow: 3 }}
-                >
-                  Follow
-                </Button>
-              )}
-              <Button
-                variant="outlined"
-                color="primary"
-                startIcon={<MessageIcon />}
-                sx={{ textTransform: 'none', boxShadow: 3 }}
-              >
-                Message
-              </Button>
-            </Box>
-          )}
-        </Box>
+  {id !== loggedInUserId && id !== loggedInRecruiter && (
+    <Box sx={{ mt: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
+      {userDetails?.followers.includes(loggedInRecruiter) || userDetails?.followers.includes(loggedInUserId) ? (
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<PersonAddAlt1Icon />}
+          onClick={loggedInUserId ? handleUnfollow : handleUnfollower}
+          sx={{ textTransform: 'none', boxShadow: 3 }}
+        >
+          Unfollow
+        </Button>
+      ) : (
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<PersonAddAlt1Icon />}
+          onClick={loggedInUserId ? handleFollow : handleFollower}
+          sx={{ textTransform: 'none', boxShadow: 3 }}
+        >
+          Follow
+        </Button>
+      )}
+      <Button
+        variant="outlined"
+        color="primary"
+        startIcon={<MessageIcon />}
+        onClick={handleCreatechat}
+        sx={{ textTransform: 'none', boxShadow: 3 }}
+      >
+        Message
+      </Button>
+    </Box>
+  )}
+</Box>
+
 
         {userDetails && (
           <>
             <Box
-              sx={{
-                p: 4,
-                borderRadius: 2,
-                boxShadow: 3,
-                bgcolor: 'background.paper',
-                mb: 4,
-                position: 'relative'
-              }}
+                 sx={{
+                  p: { xs: 2, sm: 3, md: 4 }, 
+                  borderRadius: 2,
+                  boxShadow: 3,
+                  bgcolor: 'background.paper',
+                  mb: 4,
+                  width: { xs: '90%', sm: '80%', md: '70%', lg: '100%' }, 
+                  mx: 'auto', 
+                  position: 'relative'
+                }}
             >
               <div className="flex justify-between items-center mb-4">
                 <Typography variant="h6" align="center" gutterBottom>Education</Typography>
@@ -459,14 +475,16 @@ function Profile() {
                )}
             </Box>
             <Box
-              sx={{
-                p: 4,
-                borderRadius: 2,
-                boxShadow: 3,
-                bgcolor: 'background.paper',
-                mb: 4,
-                position: 'relative'
-              }}
+                 sx={{
+                  p: { xs: 2, sm: 3, md: 4 }, 
+                  borderRadius: 2,
+                  boxShadow: 3,
+                  bgcolor: 'background.paper',
+                  mb: 4,
+                  width: { xs: '90%', sm: '80%', md: '70%', lg: '100%' }, 
+                  mx: 'auto', 
+                  position: 'relative'
+                }}
             >
               <div className="flex justify-between items-center mb-4">
                 <Typography variant="h6" align="center" gutterBottom>Experience</Typography>
@@ -499,11 +517,13 @@ function Profile() {
             </Box>
             <Box
               sx={{
-                p: 4,
+                p: { xs: 2, sm: 3, md: 4 }, 
                 borderRadius: 2,
                 boxShadow: 3,
                 bgcolor: 'background.paper',
                 mb: 4,
+                width: { xs: '90%', sm: '80%', md: '70%', lg: '100%' }, 
+                mx: 'auto', 
                 position: 'relative'
               }}
             >
@@ -534,7 +554,16 @@ function Profile() {
               />
                )}
             </Box>
-            <Box sx={{ padding: '20px', backgroundColor: '#f4f6f8', minHeight: '30vh',borderRadius: '8px',boxShadow: 3 }}>
+            <Box  sx={{
+                p: { xs: 2, sm: 3, md: 4 }, 
+                borderRadius: 2,
+                boxShadow: 3,
+                bgcolor: 'background.paper',
+                mb: 4,
+                width: { xs: '90%', sm: '80%', md: '70%', lg: '100%' }, 
+                mx: 'auto', 
+                position: 'relative'
+              }}>
             <Typography variant="h6" sx={{ marginBottom: '10px' }}>Posts</Typography>
       {posts.length > 0 ? (
         posts.slice(0, visiblePosts).map((post) => (
@@ -552,7 +581,6 @@ function Profile() {
               <Box sx={{ marginLeft: 'auto' }}>
                 <IconButton onClick={handleMenuClick}>
                   <MoreVertIcon />
-                  <h2>{post._id}</h2>
                 </IconButton>
                 <Menu
                   anchorEl={anchorEl}
@@ -639,6 +667,18 @@ function Profile() {
             fetchProfileData={fetchUserProfile}
             postDetails={selectedPost}
           />
+              <Modal
+            isOpen={isFollowingModalOpen}
+            onClose={() => setIsFollowingModalOpen(false)}
+            userIds={modalUserId}
+            title={modalTitles}
+            />
+              <Modal
+            isOpen={isFollowersModalOpen}
+            onClose={() => setIsFollowersModalOpen(false)}
+            userIds={modalUserIds}
+            title={modalTitle}
+            />
     </Box>
   );
 }

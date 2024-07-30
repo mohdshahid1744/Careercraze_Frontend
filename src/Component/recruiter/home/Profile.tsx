@@ -1,11 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Typography, Grid, AppBar, Toolbar, Button } from '@mui/material';
-import { useDispatch } from 'react-redux';
+import { Box, Typography, Grid, AppBar, Toolbar, Button,Avatar } from '@mui/material';
+import { useDispatch,useSelector } from 'react-redux';
 import { recruiterLogout } from '../../../Redux/Slice/recruiterSlice';
 import { axiosRecruiterInstance } from '../../../utils/axios/Axios';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PlusCircleIcon, PencilIcon } from '@heroicons/react/solid';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1';
+import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline';
 import ProfileData from './ProfileDataModal';
+import { RootState } from '../../../Redux/Store/Store';
+
 function Profile() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -14,6 +19,11 @@ function Profile() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { id } = useParams<{ id: string }>();
   const [isProfileDataOpen, setIsProfileDataOpen] = useState(false);
+  const userId = useSelector((store: RootState) => store.recruiter.UserId);
+  const loggedInUserId = useSelector((state: RootState) => state.user.UserId);
+console.log("LOGINNN",loggedInUserId);
+console.log("USERIDD",userId);
+
 
   const fetchUserProfile = async () => {
     try {
@@ -33,10 +43,15 @@ function Profile() {
     localStorage.removeItem('recruiterToken');
     navigate('/recruiter/reclogin');
   };
-
+  const handleProfile = () => {
+    if (userId) {
+      navigate(`/recruiter/profile/${userId}`);
+    }
+  }
   const handleHome = () => {
     navigate('/recruiter/recHome');
   };
+
   const handleUpdateProfile = () => {
     setIsProfileDataOpen(true);
   };
@@ -70,51 +85,46 @@ function Profile() {
       console.error('Error uploading file:', error);
     }
   };
+  const handleFollow = async () => {
+    try {
+      console.log("UserID INd",userId);
+    console.log("ID INDYE",id)
+      
+      
+      let response=await axiosRecruiterInstance.get(`/recruiter/follow/${userId}/${id}`)
+      console.log("RESSSS",response);
+      
+      fetchUserProfile();
+    } catch (error) {
+      console.error('Error following user:', error);
+    }
+  };
+
+  const handleUnfollow = async () => {
+    try {
+      await axiosRecruiterInstance.get(`/recruiter/unfollow/${userId}/${id}`);
+      fetchUserProfile(); 
+    } catch (error) {
+      console.error('Error unfollowing user:', error);
+    }
+  };
 
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: 'beige' }}>
-      <AppBar position="static" sx={{ height: '85px', backgroundColor: 'white' }}>
-        <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            <img
-              src='../../../Images/logo.png'
-              alt="Logo"
-              className="w-16 h-auto absolute"
-              style={{ top: '10px', left: '50px' }}
-            />
-          </Typography>
-          <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center' }}>
-            <Grid container spacing={2} justifyContent="center">
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleHome}>
-                  <img src="../../../Images/Home.png" alt="Home Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Home</Typography>
-                </Button>
-              </Grid>
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} >
-                  <img src="../../../Images/newjob.png" alt="New Job Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">New Job</Typography>
-                </Button>
-              </Grid>
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }}>
-                  <img src="../../../Images/message.png" alt="Message Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Message</Typography>
-                </Button>
-              </Grid>
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleLogout}>
-                  <img src="../../../Images/logout.png" alt="Logout Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Logout</Typography>
-                </Button>
-              </Grid>
-            </Grid>
-          </Box>
-        </Toolbar>
-      </AppBar>
+      
       <Box sx={{ padding: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexDirection: 'column', backgroundColor: 'white', padding: 3, borderRadius: 2, boxShadow: 3 }}>
+      <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            flexDirection: 'column',
+            backgroundColor: 'white',
+            padding: 3,
+            borderRadius: 2,
+            boxShadow: 3,
+          }}
+        >
           {userDetails && (
             <>
               <div className="relative">
@@ -140,9 +150,54 @@ function Profile() {
               <Typography variant="body1" sx={{ marginBottom: 1 }}>Company Name: {userDetails.companyName}</Typography>
               <Typography variant="body1" sx={{ marginBottom: 1 }}>Company Email: {userDetails.companyEmail}</Typography>
               <PencilIcon
-                    className="w-6 h-6 ml-2 text-gray-500 cursor-pointer"
-                    onClick={handleUpdateProfile}
-                  />
+                className="w-6 h-6 ml-2 text-gray-500 cursor-pointer"
+                onClick={handleUpdateProfile}
+              />
+                       <Box sx={{ mt: 4, display: 'flex', justifyContent: 'space-around' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <PeopleOutlineIcon sx={{ mr: 1, color: 'black' }} />
+              <Typography variant="subtitle1" sx={{ mr: 1 }}>
+                Following
+              </Typography>
+              <Avatar sx={{ bgcolor: 'primary.main', width: 24, height: 24, fontSize: '0.8rem' }}>
+                {userDetails?.following.length || 0}
+              </Avatar>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <PersonAddIcon sx={{ mr: 1, color: 'black' }} />
+              <Typography variant="subtitle1" sx={{ mr: 1 }}>
+                Followers
+              </Typography>
+              <Avatar sx={{ bgcolor: 'primary.main', width: 24, height: 24, fontSize: '0.8rem' }}>
+                {userDetails?.followers.length || 0}
+              </Avatar>
+            </Box>
+          </Box>
+    {id !== userId && id !== loggedInUserId && (
+            <Box sx={{ mt: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
+              {userDetails?.followers.includes(userId) ? (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<PersonAddAlt1Icon />}
+                  onClick={handleUnfollow}
+                  sx={{ textTransform: 'none', boxShadow: 3 }}
+                >
+                  Unfollow
+                </Button>
+              ) : (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<PersonAddAlt1Icon />}
+                  onClick={handleFollow}
+                  sx={{ textTransform: 'none', boxShadow: 3 }}
+                >
+                  Follow
+                </Button>
+              )}
+            </Box>
+          )}
             </>
           )}
         </Box>

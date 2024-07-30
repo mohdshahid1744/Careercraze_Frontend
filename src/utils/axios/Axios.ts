@@ -24,6 +24,8 @@ const createAxiosInstance = (token: string | null, role: string | null): AxiosIn
   };
   
   const userToken: string | null = localStorage.getItem('userToken');
+  console.log("KITTTIII",userToken);
+  
   const userRole: string | null = 'user';
   const recruiterToken: string | null = localStorage.getItem('recruiterToken');
   const recruiterRole: string | null = 'recruiter';

@@ -1,21 +1,31 @@
-import React, { useState, useEffect } from 'react';
-import { AppBar, Toolbar, Typography, Button, Box, Grid, Container, CardContent, Card, CircularProgress } from '@mui/material';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  AppBar, Toolbar, Typography, Button, Box, Container, Grid,
+  TextField, Card, CardContent, IconButton, TextareaAutosize,
+  Avatar, Modal, Backdrop,Paper,List,ListItem,ListItemAvatar,ListItemText,Menu,MenuItem,
+  Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
+  FormControl, InputLabel,Select,CircularProgress
+} from '@mui/material';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { recruiterLogout } from '../../../Redux/Slice/recruiterSlice';
 import { axiosRecruiterInstance } from '../../../utils/axios/Axios';
+import SearchIcon from '@mui/icons-material/Search';
+import InputAdornment from '@mui/material/InputAdornment';
 import { RootState } from '../../../Redux/Store/Store';
+import { debounce } from 'lodash';
+
 interface RecruiterDetails {
   name: string;
   email: string;
 }
+
 function Home() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [jobpost, setJobPost] = useState<any[]>([]);
   const userId = useSelector((store: RootState) => store.recruiter.UserId);
-  console.log("IDSSA",userId);
-  
+
   const [currentPage, setCurrentPage] = useState(1);
   const [postsPerPage] = useState(3);
   const [status, setStatus] = useState<'pending' | 'verified' | 'rejected' | null>(null);
@@ -23,6 +33,10 @@ function Home() {
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [recruiterDetails, setRecruiterDetails] = useState<RecruiterDetails | null>(null);
   const [recruiterEmail, setRecruiterEmail] = useState<string>('');
+  const [searchText, setSearchText] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchRecruiterResults, setSearchRecruiterResults] = useState<any[]>([]);
 
   const handleLogout = () => {
     dispatch(recruiterLogout());
@@ -73,10 +87,7 @@ function Home() {
     const fetchRecruiterDetails = async () => {
       try {
         const response = await axiosRecruiterInstance.get(`/recruiter/getrecruiter/${userId}`);
-        console.log("SAD",response.data);
-        
-        setRecruiterDetails(response.data.response); 
-        
+        setRecruiterDetails(response.data.response);
       } catch (error) {
         console.error('Error fetching recruiter details:', error);
       }
@@ -111,12 +122,50 @@ function Home() {
   const handleCandidates = (jobid: string) => {
     navigate(`/recruiter/candidates/${jobid}`);
   };
-
+  const handleSearchRecruiterResultClick = (userId: string) => {
+    navigate(`/recruiter/profile/${userId}`);
+    setSearchText(''); 
+    setSearchResults([]); 
+    setSearchRecruiterResults([])
+    setSearchOpen(false); 
+  };
+  const handleSearchResultClick = (userId: string) => {
+    navigate(`/recruiter/userprofile/${userId}`);
+    setSearchText(''); 
+    setSearchResults([]); 
+    setSearchRecruiterResults([])
+    setSearchOpen(false); 
+  };
+ 
   const indexOfLastPost = currentPage * postsPerPage;
   const indexOfFirstPost = indexOfLastPost - postsPerPage;
   const currentPosts = jobpost.slice(indexOfFirstPost, indexOfLastPost);
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
+
+  const fetchSearchedUsers = async (text: string) => {
+    try {
+      const response = await axiosRecruiterInstance.get(`/recruiter/searchrecruiter?text=${encodeURIComponent(text)}`);
+      setSearchResults(response.data.users.users);
+      setSearchRecruiterResults(response.data.users.recruiters);
+    } catch (error) {
+      console.error('Error fetching searched users:', error);
+    }
+  };
+
+  const debouncedFetchSearchedUsers = useCallback(
+    debounce((text: string) => {
+      fetchSearchedUsers(text);
+    }, 500),
+    []
+  );
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { value } = e.target;
+    setSearchText(value);
+    setSearchOpen(true);
+    debouncedFetchSearchedUsers(value);
+  };
 
   if (loading) {
     return (
@@ -143,6 +192,65 @@ function Home() {
             </Typography>
 
             <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center' }}>
+            <TextField
+              id="search"
+              label="Search"
+              value={searchText}
+              onChange={handleSearchChange}
+              sx={{
+                width: '500px',
+                backgroundColor: '#e3f2fd',
+                marginTop:'10px',
+                borderRadius: "15px",
+                border: "none",
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': {
+                    borderColor: 'transparent',
+                  },
+                },
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+            />
+                    {searchOpen && (
+  <Paper sx={{ position: 'absolute', top: 55, left: 0, right: 0, maxHeight: '50vh', overflowY: 'auto', zIndex: 1200 }}>
+    <List>
+    
+      {searchRecruiterResults.map((recruiter) => (
+        <ListItem 
+          key={recruiter._id} 
+          component="div" 
+          onClick={() => handleSearchRecruiterResultClick(recruiter._id)} 
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', textAlign: 'left' }}
+        >
+          <ListItemAvatar>
+            <Avatar src={recruiter.avatar} alt={recruiter.name} />
+          </ListItemAvatar>
+          <ListItemText primary={recruiter.name} secondary={recruiter.title || 'Recruiter'} />
+        </ListItem>
+      ))}
+       {searchResults.map((user) => (
+        <ListItem 
+          key={user._id} 
+          component="div" 
+          onClick={() => handleSearchResultClick(user._id)} 
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', textAlign: 'left' }}
+        >
+          <ListItemAvatar>
+            <Avatar src={user.avatar} alt={user.name} />
+          </ListItemAvatar>
+          <ListItemText primary={user.name} secondary={user.title || 'User'} />
+        </ListItem>
+      ))}
+    </List>
+  </Paper>
+)}
+
               <Grid container spacing={2} justifyContent="center">
                 <Grid item>
                   <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }}>
@@ -154,12 +262,6 @@ function Home() {
                   <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleNewJob}>
                     <img src='../../../Images/newjob.png' alt="New Job Icon" style={{ width: '30px', height: '30px' }} />
                     <Typography variant="caption">New Job</Typography>
-                  </Button>
-                </Grid>
-                <Grid item>
-                  <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }}>
-                    <img src='../../../Images/message.png'alt="Message Icon" style={{ width: '30px', height: '30px' }} />
-                    <Typography variant="caption">Message</Typography>
                   </Button>
                 </Grid>
                 <Grid item>

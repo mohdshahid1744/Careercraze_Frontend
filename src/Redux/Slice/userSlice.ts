@@ -6,6 +6,7 @@ const initialState = {
   UserId: null,
   token: null,
   isActive: true,
+  name: null,
 };
 
 const authSlice = createSlice({
@@ -15,10 +16,11 @@ const authSlice = createSlice({
     userLogin(state, action) {
       console.log('userLogin action payload:', action.payload);
       state.isLoggedIn = true;
-      state.userEmail = action.payload.userEmail;
+      state.userEmail = action.payload.userEmail; 
       state.token = action.payload.token;
       state.UserId = action.payload._id;
       state.isActive = action.payload.isActive;
+      state.name = action.payload.name
     },
     userLogout(state) {
       state.isActive = true;
@@ -26,6 +28,7 @@ const authSlice = createSlice({
       state.userEmail = null;
       state.token = null;
       state.UserId = null;
+      state.name = null;
     },
     updateUserStatus(state, action) {
       state.isActive = action.payload.isActive;

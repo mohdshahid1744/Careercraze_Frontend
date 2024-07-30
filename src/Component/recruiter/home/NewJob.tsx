@@ -44,7 +44,14 @@ function NewJob() {
   const handleHome = () => {
     navigate('/recruiter/recHome');
   };
-
+  const handleNewJob = () => {
+    navigate('/recruiter/newjob');
+  };
+  const handleProfile = () => {
+    if (userId) {
+      navigate(`/recruiter/profile/${userId}`);
+    }
+  };
   useEffect(() => {
     const handleResize = () => {
       setShowImage(window.innerWidth >= 1200);
@@ -132,13 +139,13 @@ function NewJob() {
               </Grid>
               <Grid item></Grid>
               <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }}>
-                  <img src="../../../Images/message.png" alt="Message Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Message</Typography>
-                </Button>
-              </Grid>
+                  <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleNewJob}>
+                    <img src='../../../Images/newjob.png' alt="New Job Icon" style={{ width: '30px', height: '30px' }} />
+                    <Typography variant="caption">New Job</Typography>
+                  </Button>
+                </Grid>
               <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }}>
+                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleProfile}>
                   <img src="../../../Images/Profile.png" alt="Profile Icon" style={{ width: '30px', height: '30px' }} />
                   <Typography variant="caption">Me</Typography>
                 </Button>

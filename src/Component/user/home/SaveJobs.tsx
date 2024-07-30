@@ -1,32 +1,54 @@
-import React, { useState,useEffect } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { RootState } from '../../../Redux/Store/Store';
+import React, { useState, useEffect } from 'react';
+import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { removeSavedJob } from '../../../Redux/Slice/jobSlice';
-import { Box, Typography, Button, Grid, AppBar, Toolbar, Pagination } from '@mui/material';
+import { Box, Typography, Button, Pagination } from '@mui/material';
 import { userLogout } from '../../../Redux/Slice/userSlice';
+import axios from 'axios';
+import { axiosUserInstance } from '../../../utils/axios/Axios';
 
-function SaveJobs() {
+const SaveJobs: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const savedJobs = useSelector((state: RootState) => state.job.savedJobs);
-  const user = useSelector((state: RootState) => state.user.UserId);
+  const [savedJobs, setSavedJobs] = useState<any[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const jobsPerPage = 3; 
+  const jobsPerPage = 3;
 
-  const handleButton = (event: React.MouseEvent<HTMLButtonElement>) => {
-    const jobId = event.currentTarget.getAttribute('data-id');
-    if (jobId) {
-      console.log(`Job ID: ${jobId}`);
-      navigate(`/job/${jobId}`);
+  useEffect(() => {
+    const fetchSavedJobs = async () => {
+      try {
+        const response = await axiosUserInstance.get('/getsavejob');
+        console.log("resppppppppppppppppppppp",response);
+        
+        if (Array.isArray(response.data.response)) {
+          setSavedJobs(response.data.response);
+        } else {
+          console.error("Unexpected data format:", response.data);
+          setSavedJobs([]);
+        }
+      } catch (error) {
+        console.error("Error fetching saved jobs:", error);
+        setSavedJobs([]);
+      }
+    };
+
+    fetchSavedJobs();
+  }, []);
+
+  const handleButton = (jobId: string) => {
+    navigate(`/job/${jobId}`);
+  };
+
+  const handleRemove = async (jobId: string) => {
+    try {
+      await axiosUserInstance.delete(`/deletesavejob/${jobId}`);
+      setSavedJobs((prevJobs) => prevJobs.filter(job => job._id !== jobId));
+    } catch (error) {
+      console.error("Error removing saved job:", error);
     }
   };
 
-  const handleRemove = (jobId: string) => {
-    dispatch(removeSavedJob(jobId));
-  };
-
   const handleProfile = () => {
+    const user = localStorage.getItem('userId');
     if (user) {
       navigate(`/profile/${user}`);
     }
@@ -36,6 +58,10 @@ function SaveJobs() {
     dispatch(userLogout());
     localStorage.removeItem('userToken');
     navigate('/');
+  };
+
+  const handleJob = () => {
+    navigate('/job');
   };
 
   const handleHome = () => {
@@ -53,58 +79,6 @@ function SaveJobs() {
 
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: 'beige' }}>
-      <AppBar position="static" sx={{ height: '85px', backgroundColor: 'white' }}>
-        <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            <img
-              src='../../../Images/logo.png'
-              alt="Logo"
-              className="w-16 h-auto absolute"
-              style={{ top: '10px', left: '50px' }}
-            />
-          </Typography>
-          <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center' }}>
-            <Grid container spacing={2} justifyContent="center">
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleHome}>
-                  <img src="../../../Images/Home.png" alt="Home Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Home</Typography>
-                </Button>
-              </Grid>
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }}>
-                  <img src="../../../Images/Job.png" alt="Job Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Job</Typography>
-                </Button>
-              </Grid>
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} >
-                  <img src="../../../Images/savejob.png" alt="Save Job Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Save Job</Typography>
-                </Button>
-              </Grid>
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }}>
-                  <img src="../../../Images/message.png" alt="Message Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Message</Typography>
-                </Button>
-              </Grid>
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleProfile}>
-                  <img src="../../../Images/Profile.png" alt="Profile Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Me</Typography>
-                </Button>
-              </Grid>
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleLogout}>
-                  <img src="../../../Images/logout.png" alt="Logout Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Logout</Typography>
-                </Button>
-              </Grid>
-            </Grid>
-          </Box>
-        </Toolbar>
-      </AppBar>
       <Typography variant="h4" component="h1" gutterBottom>
         Saved Jobs
       </Typography>
@@ -133,7 +107,7 @@ function SaveJobs() {
             <Typography>
               Location: {job.joblocation}
             </Typography>
-            <Button data-id={job._id} onClick={handleButton}>Show details</Button>
+            <Button onClick={() => handleButton(job.jobId)}>Show details</Button>
             <Button onClick={() => handleRemove(job._id)}>Remove Job</Button>
           </Box>
         ))}
@@ -148,6 +122,6 @@ function SaveJobs() {
       </Box>
     </Box>
   );
-}
+};
 
 export default SaveJobs;
