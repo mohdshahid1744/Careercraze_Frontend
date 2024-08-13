@@ -32,30 +32,23 @@ function NewJob() {
   const [companylogo, setCompanylogo] = useState<File | null>(null)
   const [showImage, setShowImage] = useState(window.innerWidth >= 1500);
   const userId = useSelector((store: RootState) => store.recruiter.UserId)
+const [imageSize, setImageSize] = useState('100%');
   console.log("DA",userId);
-  
-  const handleLogout = () => {
-    dispatch(recruiterLogout());
-    localStorage.removeItem('recruiterToken');
-    navigate('/recruiter/recLogin');
-  };
-  
-
-  const handleHome = () => {
-    navigate('/recruiter/recHome');
-  };
-  const handleNewJob = () => {
-    navigate('/recruiter/newjob');
-  };
-  const handleProfile = () => {
-    if (userId) {
-      navigate(`/recruiter/profile/${userId}`);
-    }
-  };
+ 
   useEffect(() => {
     const handleResize = () => {
-      setShowImage(window.innerWidth >= 1200);
+      const width = window.innerWidth;
+      if (width >= 900 && width <= 1000) {
+        setImageSize('70%'); 
+        setShowImage(true);
+      } else if (width > 1000) {
+        setImageSize('100%'); 
+        setShowImage(true);
+      } else {
+        setShowImage(false); 
+      }
     };
+    handleResize();
     window.addEventListener('resize', handleResize);
     return () => {
       window.removeEventListener('resize', handleResize);
@@ -116,64 +109,24 @@ function NewJob() {
   }
   return (
     <Box sx={{ backgroundColor: 'beige' }}>
-      <AppBar position="static" sx={{ height: '85px', backgroundColor: 'white', marginBottom: '10px' }}>
-        <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            <img
-              src="../../../Images/logo.png"
-              alt="Logo"
-              className="w-16 h-auto absolute"
-              style={{ top: '10px', left: '50px' }}
-            />
-          </Typography>
-          <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center' }}>
-            <Grid container spacing={2} justifyContent="center">
-              <Grid item>
-                <Button
-                  sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }}
-                  onClick={handleHome}
-                >
-                  <img src="../../../Images/Home.png" alt="Home Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Home</Typography>
-                </Button>
-              </Grid>
-              <Grid item></Grid>
-              <Grid item>
-                  <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleNewJob}>
-                    <img src='../../../Images/newjob.png' alt="New Job Icon" style={{ width: '30px', height: '30px' }} />
-                    <Typography variant="caption">New Job</Typography>
-                  </Button>
-                </Grid>
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleProfile}>
-                  <img src="../../../Images/Profile.png" alt="Profile Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Me</Typography>
-                </Button>
-              </Grid>
-              <Grid item>
-                <Button
-                  sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }}
-                  onClick={handleLogout}
-                >
-                  <img src="../../../Images/logout.png" alt="Logout Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Logout</Typography>
-                </Button>
-              </Grid>
-            </Grid>
-          </Box>
-        </Toolbar>
-      </AppBar>
-      <Container maxWidth="lg">
-        <Box
-          sx={{ backgroundColor: 'white', boxShadow: 8, borderRadius: 4, p: 8, width: 'full', maxWidth: '95vw' }}
-          className="flex flex-col md:flex-row items-center relative"
-        >
-          <Box sx={{ mt: 4, mb: 4 }}>
+    <Container maxWidth="lg" style={{marginTop:'10px'}}>
+      <Box
+        sx={{
+          backgroundColor: 'white',
+          boxShadow: 8,
+          borderRadius: 4,
+          p: { xs: 4, sm: 6, md: 8 },
+          width: 'full',
+          maxWidth: '95vw',
+        }}
+        className="flex flex-col md:flex-row items-center relative"
+      >
+        <Box sx={{ mt: 4, mb: 4, width: { xs: '100%', md: '40%' } }}> 
             <Typography variant="h4" component="h1" gutterBottom>
               Create New Job
             </Typography>
             <form onSubmit={formik.handleSubmit}>
-              <Box mb={2} sx={{ width: '450px' }}>
+            <Box mb={2}>
                 <TextField
                   fullWidth
                   label="Job Role"
@@ -386,7 +339,8 @@ function NewJob() {
                   right: '30%',
                   transform: 'translate(50%, -50%)',
                   maxWidth: '500px',
-                  zIndex: '0'
+                  zIndex: '0',
+                  width: imageSize, 
                 }}
               />
             )}

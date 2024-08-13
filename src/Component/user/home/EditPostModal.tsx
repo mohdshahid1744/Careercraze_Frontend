@@ -9,16 +9,17 @@ interface PostEditProps {
   open: boolean;
   onClose: () => void;
   fetchProfileData: () => void;
-  postDetails: { _id: string; description: string } | null; 
+  postDetails: { _id: string; description: string } | null;
+  onPostUpdated: (updatedPost: { _id: string; description: string }) => void; // New prop
 }
 
-// Validation schema using Yup
 const validationSchema = yup.object({
   description: yup.string().required('Description is required'),
 });
 
-const PostEditModal: React.FC<PostEditProps> = ({ open, onClose, fetchProfileData, postDetails }) => {
-  // Formik for form handling
+const PostEditModal: React.FC<PostEditProps> = ({ open, onClose, fetchProfileData, postDetails, onPostUpdated }) => {
+  const [error, setError] = React.useState<string | null>(null);
+
   const formik = useFormik({
     initialValues: {
       description: postDetails?.description || '',
@@ -32,6 +33,7 @@ const PostEditModal: React.FC<PostEditProps> = ({ open, onClose, fetchProfileDat
           console.log("Response:", response.data);
           fetchProfileData();
           onClose();
+          onPostUpdated({ ...postDetails, description: values.description }); // Call the callback with updated post
         }
       } catch (error) {
         console.error('Error updating post:', error);
@@ -40,18 +42,25 @@ const PostEditModal: React.FC<PostEditProps> = ({ open, onClose, fetchProfileDat
     },
   });
 
-  const [error, setError] = React.useState<string | null>(null);
-
   return (
     <Modal open={open} onClose={onClose}>
-      <Box sx={{ p: 4, bgcolor: 'white', borderRadius: 2, width: 400, mx: 'auto', mt: '20vh' }}>
+      <Box sx={{
+        p: 4,
+        bgcolor: 'white',
+        borderRadius: 2,
+        width: 400,
+        mx: 'auto',
+        mt: '20vh',
+        boxShadow: 24,
+        outline: 0
+      }}>
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 2 }}>
           <IconButton onClick={onClose}>
             <CloseIcon />
           </IconButton>
         </Box>
         <Typography variant="h6" mb={2}>Update Post</Typography>
-        {error && <Alert severity="error">{error}</Alert>}
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <form onSubmit={formik.handleSubmit}>
           <TextField
             fullWidth

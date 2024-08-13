@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import { FormControl } from '@mui/material';
 import EmojiEmotionsIcon from '@mui/icons-material/EmojiEmotions';
+import SendIcon from '@mui/icons-material/Send'
 import Lottie from 'react-lottie';
 import { styled } from '@mui/system';
 import socket from '../../../utils/Socket/Soket';
@@ -49,6 +50,7 @@ interface User {
 interface Chat {
   _id: string;
   participants: string[];
+  updateAt: string;
 }
 
 interface Message {
@@ -180,8 +182,9 @@ const [editedText, setEditedText] = useState<string>("");
 const [dialogOpen, setDialogOpen] = useState<boolean>(false);
 const [optionsVisible, setOptionsVisible] = useState<string | null>(null);
 const [selectedFile, setSelectedFile] = useState<File | null>(null);
+const [error, setError] = useState<string | null>(null);
 console.log("Selected file",selectedFile);
-
+const [viewMode, setViewMode] = useState('chatList');
 const [selectedFileType, setSelectedFileType] = useState<string | null>(null);
 const [showFileOption, setShowFileOption] = useState(false);
 const isMenuOpen = Boolean(showFileOption);
@@ -191,7 +194,13 @@ const handleFileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
   setShowFileOption(true);
 };
 
-
+const chatContainerRef = useRef<HTMLDivElement>(null);
+const messagesBoxRef = useRef<HTMLDivElement>(null);
+useEffect(() => {
+  if (messagesBoxRef.current) {
+    messagesBoxRef.current.scrollTop = messagesBoxRef.current.scrollHeight;
+  }
+}, [messages]);
 const textFieldRef = useRef<HTMLInputElement>(null);
 const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
   if (event.key === 'Enter') {
@@ -202,7 +211,7 @@ const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     }
   }
 };
-
+const messagesEndRef = useRef<HTMLDivElement>(null);
 
 const handleFileOptionClick = (fileType: string) => {
   
@@ -278,6 +287,21 @@ useEffect(() => {
     socket.off('user status');
   };
 }, []);
+
+useEffect(() => {
+  socket.on('lastSeenUpdated', ({ userId, lastSeen }) => {
+    setParticipants(prevParticipants => 
+      prevParticipants.map(p => 
+        p._id === userId ? { ...p, lastSeen } : p
+      )
+    );
+  });
+
+  return () => {
+    socket.off('lastSeenUpdated');
+  };
+}, []);
+
 const isOnline = (userId: string) => {
   return onlineUsers.includes(userId);
 };
@@ -320,7 +344,7 @@ const handleMenuClose = () => {
   useEffect(() => {
     fetchMessages();
     selectedChatCompare = selectedChat;
-  }, [selectedChat]);
+  }, []);
   const fetchMessages = async () => {
     if (!selectedChat) return;
 
@@ -406,6 +430,11 @@ useEffect(() => {
     setEditedText("");
   };
   const handleEditSave = async () => {
+    if (editedText.trim() === '') {
+      setError('Message cannot be empty');
+      return;
+    }
+  
     if (editingMessageId) {
       try {
         const chatId = selectedChat?._id;
@@ -413,14 +442,15 @@ useEffect(() => {
           messageId: editingMessageId,
           newMessage: editedText,
         });
-        socket.emit("edit message", { messageId: editingMessageId, newMessage: editedText, chatId });
+        socket.emit('edit message', { messageId: editingMessageId, newMessage: editedText, chatId });
         setMessages((prevMessages) =>
           prevMessages.map((msg) =>
             msg._id === editingMessageId ? { ...msg, message: editedText } : msg
           )
         );
         setDialogOpen(false);
-        setEditedText("");
+        setEditedText('');
+        setError(null); 
       } catch (error) {
         console.error('Failed to edit message', error);
       }
@@ -465,6 +495,8 @@ useEffect(() => {
     try {
       const { data } = await axiosUserInstance.get(`/getchat/${user.UserId}`);
       const chatList = data.chatlist || [];
+      console.log("CHatlist",chatList);
+      
       setChatList(chatList);
       const participantIds = chatList.flatMap((chat: any) => chat.participants);
       fetchParticipantDetails(participantIds);
@@ -598,26 +630,47 @@ const fetchUserDetails=async(userId:string)=>{
         };
   
         const response = await axiosUserInstance.post("/chat", formData, config);
-  
-        // Check if the response contains the filePath
-        if (response.data.filePath) {
-          console.log("File Path in Response:", response.data.filePath);
+        const { filePath } = response.data;
+        if (filePath) {
+          console.log("File Path in Response:", filePath);
         }
   
         socket.emit("new message", response.data);
-        setMessages((prevMessages) => [...prevMessages, response.data]);
         setNewMessage("");
         setSelectedFile(null);
+        fetchMessages();
+        if (chatContainerRef.current) {
+          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
+        return response.data; 
+  
       } catch (error) {
         console.error("Error sending message:", error);
+        return null;
       }
     }
   };
   
   
-  const handleSendClick = () => {
-    sendMessage(null);
+  
+  const handleSendClick = async () => {
+    const response = await sendMessage(null); 
+
+    if (response) {
+      setMessages((prevMessages) => [...prevMessages, response as Message]);
+
+      if (chatContainerRef.current) {
+        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      }
+    }
   };
+
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [messages]);
+  
   useEffect(() => {
     socket.on('message received', (newMessage) => {
       console.log("Message received:", newMessage);
@@ -634,7 +687,11 @@ const fetchUserDetails=async(userId:string)=>{
 
   
   
-
+useEffect(() => {
+  if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+  }
+}, [messages]);
 
   
   const handleFileChange = (files: FileList | null, fileType: string) => {
@@ -674,17 +731,49 @@ const fetchUserDetails=async(userId:string)=>{
   const handleCloseEmojiPicker = () => {
     setShowEmojiPicker(false);
   };
- 
+  const handleBackToChatList = () => {
+    setViewMode('chatList');
+    setSelectedChat(null);
+  };
+  const getMaxWidth = (messageText: string) => {
+    const textLength = messageText.length;
+    if (textLength < 20) return '30%'; 
+    if (textLength < 100) return '40%'; 
+    if (textLength < 150) return '50%'; 
+    return '60%'; 
+  };
+  useEffect(() => {
+    socket.on('sortChatlist', (newMessage) => {
+     
+      fetchChatList(); 
+    });
+  
+    return () => {
+      socket.off('sortChatlist'); 
+    };
+  }, []);
+  
+
   return (
     <ChatBox>
-       <audio ref={ringtoneRef} src="/ringtone.mp3" />
 
       <Box sx={{ display: 'flex', flexGrow: 1, mt: '5px' }}>
-        <Sidebar elevation={3}>
+      <Sidebar elevation={3} sx={{ display: isSmallScreen && viewMode === 'chatMessages' ? 'none' : 'block' }}>
        
-        <ChatHeader variant="h6" gutterBottom style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',fontSize: isSmallScreen ? '0.8rem' : '1.25rem' }}>
-      Chats
-      <IconButton
+      <Typography
+      variant="h6"
+      gutterBottom
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        fontSize: isSmallScreen ? '0.8rem' : '1.25rem',
+        padding: isSmallScreen ? '0.5rem' : '1rem',
+      }}
+    >
+      <span style={{ fontSize: isSmallScreen ? '1rem' : '1.25rem' }}>Chats</span>
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <IconButton
           color="inherit"
           onClick={handleMenuOpen}
           style={{ fontSize: isSmallScreen ? '1rem' : '2rem' }}
@@ -692,111 +781,137 @@ const fetchUserDetails=async(userId:string)=>{
           <NotificationsIcon fontSize={isSmallScreen ? 'small' : 'inherit'} />
           <NotificationBadge count={notification.length} />
         </IconButton>
-      <Menu
+        <Menu
         anchorEl={null} 
         open={menuOpen} 
         onClose={handleMenuClose} 
       >
-        <MenuItem>
-       
-          {!notification.length && "No new messages"}
+          {!notification.length && (
+            <MenuItem>No new messages</MenuItem>
+          )}
           {notification.map((notify, index) => (
-          <MenuItem key={index} >
-            {notify.senderName}: {notify.message}
-          </MenuItem>
-        ))}
-        </MenuItem>
-      </Menu>
-    </ChatHeader>
+            <MenuItem key={index}>
+              {notify.senderName}: {notify.message}
+            </MenuItem>
+          ))}
+        </Menu>
+      </div>
+    </Typography>
     
-      <List sx={{ width: '100%', maxWidth: 360 }}>
-        {chatList && chatList.length > 0 ? (
-          chatList.map((chat) => {
-            let participantId =
-              chat.participants[0] !== user.UserId
-                ? chat.participants[0]
-                : chat.participants[1];
-            const participantDetails = getParticipantDetails(participantId);
+    <List sx={{ width: '100%', maxWidth: 360 }}>
+  {chatList && chatList.length > 0 ? (
+    chatList
+    .slice() 
+    .sort((a, b) => {
+      const lastMessageTimeA = new Date(a.updateAt).getTime();
+      const lastMessageTimeB = new Date(b.updateAt).getTime();
+      return lastMessageTimeB - lastMessageTimeA;
+    })
+    .map((chat) => {
+      let participantId =
+        chat.participants[0] !== user.UserId
+          ? chat.participants[0]
+          : chat.participants[1];
+      const participantDetails = getParticipantDetails(participantId);
 
-            return (
-              <ListItem
-                key={chat._id}
-                onClick={() => handleChatSelect(chat)}
-                selected={selectedChat?._id === chat._id}
+        return (
+          <ListItem
+            key={chat._id}
+            onClick={() => {
+              handleChatSelect(chat);
+              setViewMode('chatMessages');
+            }}
+            selected={selectedChat?._id === chat._id}
+            sx={{
+              borderRadius: '10px',
+              backgroundColor: selectedChat?._id === chat._id ? '#f0f0f0' : '#ffffff',
+              '&:hover': { backgroundColor: '#f0f0f0' },
+              marginBottom: '10px',
+              boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
+              transition: 'background-color 0.2s ease',
+            }}
+          >
+            <Box position="relative">
+              <Avatar
+                alt={participantDetails?.name}
+                src={participantDetails?.avatar}
                 sx={{
-                  borderRadius: '10px',
-                  backgroundColor: selectedChat?._id === chat._id ? '#f0f0f0' : '#ffffff',
-                  '&:hover': { backgroundColor: '#f0f0f0' },
-                  marginBottom: '10px',
-                  boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
-                  transition: 'background-color 0.2s ease',
+                  width: { xs: 40, sm: 48, md: 64 },
+                  height: { xs: 40, sm: 48, md: 64 },
+                  marginRight: 2,
                 }}
-              >
-       <Box position="relative">
-        <Avatar
-          alt={participantDetails?.name}
-          src={participantDetails?.avatar}
-          sx={{
-            width: { xs: 40, sm: 48, md: 64 }, 
-            height: { xs: 40, sm: 48, md: 64 }, 
-            marginRight: 2
-          }}
-        />
-        {!isSmallScreen && (
-          <Box
-            position="absolute"
-            bottom={0}
-            right={0}
-            width={16}
-            height={16}
-            borderRadius="50%"
-            bgcolor={isOnline(participantId) ? 'green' : 'red'}
-            sx={{ border: '2px solid white' }} 
-          />
-        )}
-      </Box>
-      {!isSmallScreen ? (
-        <ListItemText
-          primary={participantDetails?.name || 'Loading...'}
-          primaryTypographyProps={{
-            variant: 'subtitle1',
-            fontWeight: 'bold',
-            color: '#333333',
-            sx: {
-              fontSize: { xs: '0.75rem', sm: '0.875rem', md: '1rem', lg: '1.25rem' }, 
-            }
-          }}
-          secondary={
-            <Typography variant="caption" color={isOnline(participantId) ? 'green' : 'red'}>
-              {isOnline(participantId) ? 'Online' : 'Offline'}
-            </Typography>
-          }
-        />
-      ) : (
-        <Box
-          sx={{
-            width: 10,
-            height: 10,
-            borderRadius: '50%',
-            bgcolor: isOnline(participantId) ? 'green' : 'red',
-            position: 'absolute',
-            bottom: 0,
-            right: 0,
-            transform: 'translate(50%, 50%)'
-          }}
-        />
-      )}
-              </ListItem>
-            );
-          })
-        ) : (
-          <Box sx={{ padding: '16px', textAlign: 'center', color: '#888888' }}>
-            <Typography>No chats available</Typography>
-          </Box>
-        )}
-      </List>
+              />
+              {!isSmallScreen && (
+                <Box
+                  position="absolute"
+                  bottom={0}
+                  right={0}
+                  width={16}
+                  height={16}
+                  borderRadius="50%"
+                  bgcolor={isOnline(participantId) ? 'green' : 'red'}
+                  sx={{ border: '2px solid white' }}
+                />
+              )}
+            </Box>
+            {!isSmallScreen ? (
+              <ListItemText
+                primary={participantDetails?.name || 'Loading...'}
+                primaryTypographyProps={{
+                  variant: 'subtitle1',
+                  fontWeight: 'bold',
+                  color: '#333333',
+                  sx: {
+                    fontSize: {
+                      xs: '0.75rem',
+                      sm: '0.875rem',
+                      md: '1rem',
+                      lg: '1.25rem',
+                    },
+                  },
+                }}
+                secondary={
+                  <Typography variant="caption" color={isOnline(participantId) ? 'green' : 'red'}>
+                    {isOnline(participantId) ? 'Online' : 'Offline'}
+                  </Typography>
+                }
+              />
+            ) : (
+              <Box
+                sx={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: '50%',
+                  bgcolor: isOnline(participantId) ? 'green' : 'red',
+                  position: 'absolute',
+                  bottom: 0,
+                  right: 0,
+                  transform: 'translate(50%, 50%)',
+                }}
+              />
+            )}
+          </ListItem>
+        );
+      })
+  ) : (
+    <Box sx={{ padding: '16px', textAlign: 'center', color: '#888888' }}>
+      <Typography>No chats available</Typography>
+    </Box>
+  )}
+</List>
+
         </Sidebar>
-        <ChatArea elevation={3}>
+        <ChatBox
+            
+            style={{
+              flexGrow: 1,
+              overflowY: 'auto',
+              padding: '16px',
+              backgroundColor: '#f9f9f9',
+              borderRadius: '10px',
+              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+            }}
+          >
   <>
     {selectedChat ? (
       
@@ -812,14 +927,9 @@ const fetchUserDetails=async(userId:string)=>{
           justifyContent={{ base: 'space-between' }}
           alignItems="center"
         >
-          <IconButton
-            sx={{
-              display: { base: 'flex' },
-            }}
-            onClick={() => setSelectedChat(null)}
-          >
-            <ArrowBackIcon />
-          </IconButton>
+           <IconButton sx={{ display: { base: 'flex' } }} onClick={handleBackToChatList}>
+                  <ArrowBackIcon />
+                </IconButton>
           {messages.length > 0 && (
             <Avatar
               alt={getParticipantDetails(messages[0].sender)?.name}
@@ -866,7 +976,8 @@ const fetchUserDetails=async(userId:string)=>{
   </IconButton>
 </Typography>
         </Typography>
-        <MessagesBox style={{ backgroundColor: 'beige' }}>
+        <MessagesBox ref={messagesBoxRef} style={{ backgroundColor: 'beige' }}>
+        
           {loading ? (
             <CircularProgress />
           ) : (
@@ -876,59 +987,90 @@ const fetchUserDetails=async(userId:string)=>{
 
               return (
                 <div
-                  key={message._id}
-                  onDoubleClick={() => handleDoubleClick(message._id)}
-                  style={{
-                    alignSelf: isOwnMessage ? 'flex-end' : 'flex-start',
-                    padding: '10px 14px',
-                    borderRadius: '20px',
-                    boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.12), 0px 1px 2px rgba(0, 0, 0, 0.24)',
-                    backgroundColor: isOwnMessage ? '#DCF8C6' : '#FFFFFF',
-                    marginBottom: '10px',
-                    maxWidth: '60%',
-                    marginLeft: isOwnMessage ? 'auto' : 'inherit',
-                    position: 'relative',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {isEditing && editingMessageId === message._id ?(
-                    <>
-                <TextField
-                value={editedText}
-                fullWidth
-                multiline
-                rows={2}
-                variant="outlined"
-                size="small"
-              />
-              <Button  color="primary" size="small">Save</Button>
-              <Button  color="secondary" size="small">Cancel</Button>
-                    </>
-                  ):(
-                    <>
-                       <Typography variant="body1" style={{ color: isOwnMessage ? '#000000' : '#888888', fontSize: '0.9375rem', lineHeight: 1.5 }}>
-                {message.message}
-                {message.filePath && (
-                    <>
-                        {message.fileType.startsWith('image/') && (
-                            <img
-                                src={message.filePath}
-                                alt="Uploaded"
-                                style={{ maxWidth: '40%', height: 'auto' }}
+                key={message._id}
+                onDoubleClick={() => handleDoubleClick(message._id)}
+                style={{
+                  alignSelf: isOwnMessage ? 'flex-end' : 'flex-start',
+                  padding: '10px 14px',
+                  borderRadius: '20px',
+                  boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.12), 0px 1px 2px rgba(0, 0, 0, 0.24)',
+                  backgroundColor: isOwnMessage ? '#DCF8C6' : '#FFFFFF',
+                  marginBottom: '10px',
+                  maxWidth: message.filePath ? '30%' : getMaxWidth(message.message),
+                  marginLeft: isOwnMessage ? 'auto' : 'inherit',
+                  position: 'relative',
+                  cursor: 'pointer',
+                  wordWrap: 'break-word', 
+                  overflowWrap: 'break-word', 
+                  whiteSpace: 'pre-wrap', 
+                }}
+              >
+                {isEditing && editingMessageId === message._id ? (
+                  <>
+                    <TextField
+                      value={editedText}
+                      fullWidth
+                      multiline
+                      rows={2}
+                      variant="outlined"
+                      size="small"
+                    />
+                    <Button color="primary" size="small">Save</Button>
+                    <Button color="secondary" size="small">Cancel</Button>
+                  </>
+                ) : (
+                  <>
+                    <Typography 
+                      variant="body1" 
+                      style={{ 
+                        color: isOwnMessage ? '#000000' : '#888888', 
+                        fontSize: '0.9375rem', 
+                        lineHeight: 1.5,
+                        padding: 0,
+                        backgroundColor: 'transparent',
+                        wordBreak: 'break-word', 
+                      }}
+                    >
+                      {message.message}
+                      {message.filePath && (
+                        <div style={{ 
+                          marginTop: '0.5rem',
+                          width: '100%',
+                          padding: 0,
+                        }}>
+                          {isImage(message.fileType) && (
+                            <img 
+                              src={message.filePath} 
+                              alt="Uploaded" 
+                              style={{ 
+                                width: '100%',
+                                height: 'auto',
+                                borderRadius: '8px',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                              }}
                             />
-                        )}
-                        {message.fileType.startsWith('video/') && (
-                            <video
-                                src={message.filePath}
-                                controls
-                                style={{ maxWidth: '100%', height: 'auto' }}
+                          )}
+                          {isVideo(message.fileType) && (
+                            <video 
+                              src={message.filePath} 
+                              controls 
+                              style={{ 
+                                width: '100%',
+                                height: 'auto',
+                                borderRadius: '8px',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                              }}
                             >
-                                Your browser does not support the video tag.
+                              Your browser does not support the video tag.
                             </video>
-                        )}
-                    </>
-                )}
-            </Typography>
+                          )}
+                        </div>
+                      )}
+                    </Typography>
+
+
+
+
                   {isOwnMessage &&showOptions&& (
             <>
               <IconButton
@@ -970,91 +1112,150 @@ const fetchUserDetails=async(userId:string)=>{
               );
             })
           )}
+          <div ref={messagesEndRef} />
         </MessagesBox>
         <Dialog open={dialogOpen} onClose={handleEditCancel}>
-        <DialogTitle>Edit Message</DialogTitle>
-        <DialogContent>
-          <TextField
-            value={editedText}
-            onChange={handleEditChange}
-            fullWidth
-            multiline
-            rows={2}
-            variant="outlined"
-            size="small"
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleEditCancel} color="secondary">
-            Cancel
-          </Button>
-          <Button onClick={handleEditSave} color="primary">
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
-        <FormControl>
-          <div>
-            <style>{fadeInAnimation}</style>
-            {istyping && (
-              <div>
-                <Lottie
-                  options={defaultOptions}
-                  width={70}
-                  style={{ marginBottom: 15, marginLeft: 0 }}
-                />
-              </div>
-            )}
-          </div>
-          <TextField
-            variant="filled"
-            placeholder="Enter a message.."
-            value={newMessage}
-            onChange={typingHandler}
-            onKeyDown={handleKeyDown}
-            required
-            InputProps={{
-              endAdornment: (
-                <>
-                  <IconButton onClick={toggleEmojiPicker}>
-                    <EmojiEmotionsIcon />
-                  </IconButton>
-                  {showEmojiPicker && (
-                    <Picker
-                      data={data}
-                      onEmojiSelect={handleEmojiSelect}
-                      style={{ position: 'absolute', bottom: '60px', right: '10px' }}
-                    />
-                  )}
-                   <IconButton onClick={handleFileMenuOpen}>
-                  <ImageIcon />
-                </IconButton>
-                {showFileOption && (
-                <div className='absolute bottom-12 right-2 bg-white border border-gray-300 rounded shadow-lg'>
-                  <button type='button' onClick={() => handleFileOptionClick('image')} className='block w-full text-left px-4 py-2 hover:bg-gray-100'>
-                    Image
-                  </button>
-                  <button type='button' onClick={() => handleFileOptionClick('video')} className='block w-full text-left px-4 py-2 hover:bg-gray-100'>
-                    Video
-                  </button>
-                </div>
-              )}
-              {selectedFile && (
-               <div style={{ display: 'flex', alignItems: 'center', marginTop: 8 }}>
-               <Typography variant="body1" style={{ marginRight: 8 }}>
-                 {selectedFile.name}
-               </Typography>
-               <Button variant="contained" color="primary" onClick={handleSendClick}>
-                 Send
-               </Button>
-             </div>
-              )}
-            </>
-          ),
-        }}
-      />
-       <input type='file' className='hidden' id='file-input' />
-    </FormControl>
+  <DialogTitle>Edit Message</DialogTitle>
+  <DialogContent>
+    <TextField
+      value={editedText}
+      onChange={(e) => setEditedText(e.target.value)}
+      fullWidth
+      multiline
+      rows={2}
+      variant="outlined"
+      size="small"
+      error={!!error}
+      helperText={error}
+    />
+  </DialogContent>
+  <DialogActions>
+    <Button onClick={handleEditCancel} color="secondary">
+      Cancel
+    </Button>
+    <Button onClick={handleEditSave} color="primary">
+      Save
+    </Button>
+  </DialogActions>
+</Dialog>
+
+<FormControl style={{ position: 'relative', width: '100%' }}>
+  <div>
+    <style>{fadeInAnimation}</style>
+    {istyping && (
+      <div>
+        <Lottie
+          options={defaultOptions}
+          width={70}
+          style={{ marginBottom: 15, marginLeft: 0 }}
+        />
+      </div>
+    )}
+  </div>
+  <TextField
+    variant="outlined"
+    placeholder="Type a message..."
+    value={newMessage}
+    onChange={typingHandler}
+    onKeyDown={handleKeyDown}
+    required
+    style={{
+      borderRadius: '50px',
+      padding: '10px 16px',
+      backgroundColor: '#ffffff',
+      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+      marginTop: '8px',
+      transition: 'box-shadow 0.3s ease-in-out',
+    }}
+    InputProps={{
+      endAdornment: (
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <IconButton
+            onClick={toggleEmojiPicker}
+            style={{
+              padding: '6px',
+              color: '#ff9800',
+              transition: 'color 0.3s ease',
+            }}
+          >
+            <EmojiEmotionsIcon />
+          </IconButton>
+          {showEmojiPicker && (
+            <Picker
+              data={data}
+              onEmojiSelect={handleEmojiSelect}
+              style={{
+                position: 'absolute',
+                bottom: '70px',
+                right: '10px',
+                borderRadius: '8px',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+                zIndex: 1000,
+              }}
+            />
+          )}
+          <IconButton
+            onClick={handleFileMenuOpen}
+            style={{
+              padding: '6px',
+              color: '#ff9800',
+              transition: 'color 0.3s ease',
+            }}
+          >
+            <ImageIcon />
+          </IconButton>
+          {showFileOption && (
+            <div className='absolute bottom-16 right-2 bg-white border border-gray-300 rounded-lg shadow-lg'>
+              <button
+                type='button'
+                onClick={() => handleFileOptionClick('image')}
+                className='block w-full text-left px-4 py-2 hover:bg-gray-100'
+                style={{ borderTopLeftRadius: '8px', borderTopRightRadius: '8px' }}
+              >
+                Image
+              </button>
+              <button
+                type='button'
+                onClick={() => handleFileOptionClick('video')}
+                className='block w-full text-left px-4 py-2 hover:bg-gray-100'
+                style={{ borderBottomLeftRadius: '8px', borderBottomRightRadius: '8px' }}
+              >
+                Video
+              </button>
+            </div>
+          )}
+          {selectedFile && (
+            <div style={{ display: 'flex', alignItems: 'center', marginTop: 8 }}>
+              <Typography
+                variant="body2"
+                style={{ marginRight: 8, color: '#555', fontWeight: '400' }}
+              >
+                {selectedFile.name}
+              </Typography>
+              <IconButton
+                onClick={handleSendClick}
+                style={{
+                  borderRadius: '50%',
+                  padding: '8px',
+                  backgroundColor: '#3f51b5',
+                  color: '#fff',
+                  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.2)',
+                  transition: 'background-color 0.3s ease',
+                }}
+              >
+                <SendIcon />
+              </IconButton>
+            </div>
+          )}
+        </div>
+      ),
+    }}
+  />
+  <input type='file' className='hidden' id='file-input' />
+</FormControl>
+
+
+
       </>
     ) : (
       <Box
@@ -1073,7 +1274,7 @@ const fetchUserDetails=async(userId:string)=>{
       </Box>
     )}
   </>
-</ChatArea>
+</ChatBox>
 
       </Box>
       <Dialog

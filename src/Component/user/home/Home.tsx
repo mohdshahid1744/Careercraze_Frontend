@@ -6,8 +6,9 @@ import {
   TextField, Card, CardContent, IconButton, TextareaAutosize,
   Avatar, Modal, Backdrop,Paper,List,ListItem,ListItemAvatar,ListItemText,Menu,MenuItem,
   Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
-  FormControl, InputLabel,Select,Divider
+  FormControl, InputLabel,Select,Divider,useMediaQuery,Drawer,ListItemIcon
 } from '@mui/material';
+import MenuIcon from '@mui/icons-material/Menu';
 import { userLogout } from '../../../Redux/Slice/userSlice';
 import { RootState } from '../../../Redux/Store/Store';
 import SearchIcon from '@mui/icons-material/Search';
@@ -21,6 +22,16 @@ import { debounce } from 'lodash';
 import ConfirmationModal from './ConfimationModal';
 import ReplyIcon from '@mui/icons-material/Reply';
 import socket from '../../../utils/Socket/Soket';
+import { Theme } from '@mui/material/styles';
+import HomeIcon from '@mui/icons-material/Home';
+import WorkIcon from '@mui/icons-material/Work';
+import BookmarkIcon from '@mui/icons-material/Bookmark';
+import ChatIcon from '@mui/icons-material/Chat';
+import PersonIcon from '@mui/icons-material/Person';
+import ExitToAppIcon from '@mui/icons-material/ExitToApp';
+import { keyframes } from '@emotion/react';
+import InfiniteScroll from 'react-infinite-scroll-component';
+
 
 interface Post {
   _id: string;
@@ -35,7 +46,7 @@ interface Post {
   likes: {
     userId: string;
     createdAt: Date;
-  }[];
+  }[]; 
   comments: {
     userId: string;
     message: string;
@@ -47,11 +58,22 @@ interface Comment {
   _id: string;
   userId: string;
   message: string;
-  username:string;
+  username: string;
   createdAt: string;
-  replies?: { message: string,username:string,createdAt: string; }[]; 
+  replies?: { message: string; username: string; createdAt: string }[];
 }
 
+const clickAnimation = keyframes`
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.2) rotate(180deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+`;
 
 
 function Home() {
@@ -69,7 +91,7 @@ function Home() {
   const [image, setImage] = useState<File | null>(null);
   const [userDetails, setUserDetails] = useState<any>(null);
   const [commentText, setCommentText] = useState<{ [key: string]: string }>({});
-  const [comments, setComments] = useState<{ [key: string]: Comment[] }>({});;
+  const [comments, setComments] = useState<{ [key: string]: Comment[] }>({});
   
 const [commentVisibility, setCommentVisibility] = useState<{ [key: string]: boolean }>({});
 const [searchText, setSearchText] = useState('');
@@ -86,16 +108,42 @@ const [commentId, setCommentId] = useState('');
 const [replyText, setReplyText] = useState('');
 const [replyingTo, setReplyingTo] = useState(null);
 const [expandedReplies, setExpandedReplies] = useState<{ [key: string]: boolean }>({}); 
-const [commentCounts,setCommentCounts]=useState<number>(0)
+const [commentCounts, setCommentCounts] = useState<{ [key: string]: number }>({});
+const [showFullDescription, setShowFullDescription] = useState<{ [key: string]: boolean }>({});
+const maxLength = 5
+const [drawerOpen, setDrawerOpen] = useState(false);
+const isSmallScreen = useMediaQuery((theme: Theme) => theme.breakpoints.down('lg'));
+const [isAnimating, setIsAnimating] = useState(false);
+const [hasMore, setHasMore] = useState(true); 
+const [page, setPage] = useState(1);
+const [isLoading, setLoading] = useState(false);
 
-
+const handleClick = () => {
+  setIsAnimating(true);
+  handleDrawerToggle();
+  setTimeout(() => setIsAnimating(false), 300); 
+};
+  const handleDrawerToggle = () => {
+    setDrawerOpen(!drawerOpen);
+  };
+const toggleDescription = (postId: string) => {
+  setShowFullDescription((prevState) => ({
+    ...prevState,
+    [postId]: !prevState[postId],
+  }));
+};
 const fetchPosts = async () => {
+  if (isLoading || !hasMore) return;
+
+  setLoading(true);
   try {
-    const response = await axiosUserInstance.get(`/getAllPost`);
-    const postsWithUsers = await Promise.all(response.data.posts.map(async (post:any) => {
+    const response = await axiosUserInstance.get(`/getAllPost?limit=2&page=${page}`);
+    console.log("Fetched posts:", response.data.posts);
+    const postsWithUsers = await Promise.all(response.data.posts.map(async (post: any) => {
       try {
         const userResponse = await axiosUserInstance.get(`/getuser/${post.userId}`);
         const userDetails = userResponse.data.response;
+
         return {
           ...post,
           user: {
@@ -106,25 +154,52 @@ const fetchPosts = async () => {
         };
       } catch (userError) {
         console.error('Error fetching user details:', userError);
-        return post;
+        return post; 
       }
     }));
-    console.log("POSR",postsWithUsers);
-    
-    setPosts(postsWithUsers);
+
+    console.log("Posts with user details:", postsWithUsers);
+    setPosts((prevPosts) =>
+      page === 1
+        ? [...postsWithUsers]
+        : [...prevPosts, ...postsWithUsers]
+    );
+    setHasMore(response.data.posts.length === 2);
   } catch (error) {
     console.error('Error fetching posts:', error);
+    setHasMore(false);
+  } finally {
+    setLoading(false);
   }
 };
-console.log("POA",posts);
 
-  useEffect(() => {
-    if (!isLoggedIn) {
-      navigate('/');
-    } else {
-      fetchPosts();
+
+
+console.log("POA",posts);
+const handlescroll = () => {
+  if (
+    window.innerHeight + document.documentElement.scrollTop + 1 >
+    document.documentElement.scrollHeight
+  ) {
+    if (hasMore && !isLoading) {
+      setPage((prev) => prev + 1);
     }
-  }, [isLoggedIn, navigate, userId]);
+  }
+};
+
+useEffect(() => {
+  window.addEventListener("scroll", handlescroll);
+  return () => window.removeEventListener("scroll", handlescroll);
+}, []);
+
+useEffect(() => {
+  if (isLoggedIn) {
+    fetchPosts(); 
+  } else {
+    navigate('/');
+  }
+}, [isLoggedIn, navigate, page]); 
+
   const fetchComments = async (postId: string) => {
     try {
       const response = await axiosUserInstance.get(`/getcomment/${postId}`);
@@ -141,7 +216,26 @@ console.log("POA",posts);
     }
   };
 
+  useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        const response = await axiosUserInstance.get('/getAllPost');
+        const fetchedPosts: Post[] = response.data.posts;
 
+        const counts = fetchedPosts.reduce((acc: any, post: Post) => {
+          acc[post._id] = post.comments.length;
+          return acc;
+        }, {});
+
+        setPosts(fetchedPosts);
+        setCommentCounts(counts);
+      } catch (error) {
+        console.error('Error fetching posts:', error);
+      }
+    };
+
+    fetchPosts();
+  }, []);
  
   const handleCommentIconClick = async (postId: string) => {
     setCommentVisibility((prev) => ({
@@ -238,7 +332,7 @@ console.log("FORMS",formData);
         },
       };
 console.log("NEWWWW",newPost);
-
+fetchPosts();
       setPosts([newPost, ...posts]);
       setDescription('');
       setImage(null);
@@ -350,54 +444,82 @@ const handleNewClose=()=>{
     try {
       const userDataResponse = await axiosUserInstance.get(`/getuser/${userId}`); 
       const username = userDataResponse.data.response.name;
-      console.log("SDFSDF",username);
       
-      const response = await axiosUserInstance.post('/comment', { userId, postId, comment: text,username});
-      console.log("SDGggggggggggggggggggggggggggg",response);
+      const response = await axiosUserInstance.post('/comment', { userId, postId, comment: text, username });
+
       if (response.data.message) {
         setPosts((prevPosts) =>
           prevPosts.map((post: any) =>
             post._id === postId ? { ...post, comments: [...post.comments, { userId, message: text }] } : post
           )
         );
-        
         setCommentText((prev) => ({
           ...prev,
           [postId]: '',
         }));
-        console.log("RAARAFTHA",commentText);
-        
+
+        setCommentCounts((prevCounts) => ({
+          ...prevCounts,
+          [postId]: prevCounts[postId] + 1,
+        }));
       }
-      setCommentCounts((prevCount) => prevCount + 1);
     } catch (error) {
       console.error('Error posting comment:', error);
     }
   };
 
-  const handleReplyComment=async(parentCommentId:string)=>{
+  const handleReplyComment = async (parentCommentId: string) => {
     try {
-      const userDataResponse = await axiosUserInstance.get(`/getuser/${userId}`); 
+      const userDataResponse = await axiosUserInstance.get(`/getuser/${userId}`);
       const username = userDataResponse.data.response.name;
-      const response = await axiosUserInstance.post('/replycomment',{
-      postId: selectedPost?._id,
-      parentCommentId,
-      comment: replyText,
-      userId,
-      username
-    });
-    if (response.status===200) {
-      console.log('Reply added successfully');
-      setReplyText('');
-      setReplyingTo(null);
-      
-    } else {
-      console.error('Failed to add reply');
-    }
-    
+      const response = await axiosUserInstance.post('/replycomment', {
+        postId: selectedPost?._id,
+        parentCommentId,
+        comment: replyText,
+        userId,
+        username
+      });
+  
+      if (response.status === 200) {
+        console.log('Reply added successfully');
+        if (selectedPost && selectedPost._id) {
+          setComments((prevComments) => {
+            const postComments = prevComments[selectedPost._id] || [];
+            const updatedComments = postComments.map((comment) =>
+              comment._id === parentCommentId
+                ? {
+                    ...comment,
+                    replies: [
+                      ...(comment.replies || []),
+                      {
+                        message: replyText,
+                        username,
+                        createdAt: new Date().toISOString()
+                      }
+                    ]
+                  }
+                : comment
+            );
+  
+            return {
+              ...prevComments,
+              [selectedPost._id]: updatedComments
+            };
+          });
+        }
+  
+        setReplyText('');
+        setReplyingTo(null);
+      } else {
+        console.error('Failed to add reply');
+      }
     } catch (error) {
-      
+      console.error('Error adding reply:', error);
     }
-  }
+  };
+  
+  
+  
   const fetchSearchedUsers = async (text: string) => {
     try {
       const response = await axiosUserInstance.get(`/searchuser?text=${encodeURIComponent(text)}`);
@@ -415,7 +537,7 @@ const handleNewClose=()=>{
     }, 500),
     []
   );
-
+     
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { value } = e.target;
     setSearchText(value);
@@ -483,11 +605,15 @@ const handleNewClose=()=>{
       );
       setCommentoptions(false);
       setShowDeleteConfirmation(false);
-      setCommentCounts((prevCount) => prevCount - 1);
+      setCommentCounts((prevCounts) => ({
+        ...prevCounts,
+        [postId]: prevCounts[postId] - 1,
+      }));
     } catch (error) {
       console.error("Error deleting comment:", error);
     }
   };
+  const handleHome = () => navigate('/home');
   const reasons = [
     { value: 'scam', label: 'Scam' },
     { value: 'spam', label: 'Spam' },
@@ -495,121 +621,221 @@ const handleNewClose=()=>{
     { value: 'violence', label: 'Violence' },
     { value: 'other', label: 'Other' }
   ];
-  
+  const menuItems = (
+    <List>
+      <ListItem button onClick={handleHome} sx={{ '&:hover': { backgroundColor: '#f0f0f0' } }}>
+        <ListItemIcon>
+          <HomeIcon />
+        </ListItemIcon>
+        <ListItemText primary="Home" />
+      </ListItem>
+      <ListItem button onClick={handleJob} sx={{ '&:hover': { backgroundColor: '#f0f0f0' } }}>
+        <ListItemIcon>
+          <WorkIcon />
+        </ListItemIcon>
+        <ListItemText primary="Job" />
+      </ListItem>
+      <ListItem button onClick={handleSavedJob} sx={{ '&:hover': { backgroundColor: '#f0f0f0' } }}>
+        <ListItemIcon>
+          <BookmarkIcon />
+        </ListItemIcon>
+        <ListItemText primary="Saved Jobs" />
+      </ListItem>
+      <ListItem button onClick={handleChat} sx={{ '&:hover': { backgroundColor: '#f0f0f0' } }}>
+        <ListItemIcon>
+          <ChatIcon />
+        </ListItemIcon>
+        <ListItemText primary="Messages" />
+      </ListItem>
+      <ListItem button onClick={handleProfile} sx={{ '&:hover': { backgroundColor: '#f0f0f0' } }}>
+        <ListItemIcon>
+          <PersonIcon />
+        </ListItemIcon>
+        <ListItemText primary="Profile" />
+      </ListItem>
+      <ListItem button onClick={handleLogout} sx={{ '&:hover': { backgroundColor: '#f0f0f0' } }}>
+        <ListItemIcon>
+          <ExitToAppIcon />
+        </ListItemIcon>
+        <ListItemText primary="Logout" />
+      </ListItem>
+      <Divider />
+    </List>
+  );
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: 'beige' }}>
-      <AppBar position="static" sx={{ height: '85px', backgroundColor: '#fff', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
-        <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            <img
-              src='../../../Images/logo.png'
-              alt="Logo"
-              className="w-16 h-auto absolute"
-              style={{ top: '10px', left: '50px' }}
-            />
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <TextField
-              id="search"
-              label="Search"
-              value={searchText}
-              onChange={handleSearchChange}
-              sx={{
-                width: '500px',
-                backgroundColor: '#e3f2fd',
-                borderRadius: "15px",
-                border: "none",
-                '& .MuiOutlinedInput-root': {
-                  '& fieldset': {
-                    borderColor: 'transparent',
-                  },
-                },
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-            
-            {searchOpen && (
-  <Paper sx={{ position: 'absolute', top: 55, left: 0, right: 0, maxHeight: '50vh', overflowY: 'auto', zIndex: 1200 }}>
-    <List>
-      {searchResults.map((user) => (
-        <ListItem 
-          key={user._id} 
-          component="div" 
-          onClick={() => handleSearchResultClick(user._id)} 
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', textAlign: 'left' }}
-        >
-          <ListItemAvatar>
-            <Avatar src={user.avatar} alt={user.name} />
-          </ListItemAvatar>
-          <ListItemText primary={user.name} secondary={user.title || 'User'} />
-        </ListItem>
-      ))}
-      {searchRecruiterResults.map((recruiter) => (
-        <ListItem 
-          key={recruiter._id} 
-          component="div" 
-          onClick={() => handleSearchRecruiterResultClick(recruiter._id)} 
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', textAlign: 'left' }}
-        >
-          <ListItemAvatar>
-            <Avatar src={recruiter.avatar} alt={recruiter.name} />
-          </ListItemAvatar>
-          <ListItemText primary={recruiter.name} secondary={recruiter.title || 'Recruiter'} />
-        </ListItem>
-      ))}
-    </List>
-  </Paper>
-)}
+     <>
+     <AppBar position="static" sx={{ height: '85px', backgroundColor: '#fff', boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)', borderBottom: '1px solid rgba(0, 0, 0, 0.1)' }}>
+  <Toolbar sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+  <Typography variant="h6" sx={{ flexGrow: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
+  <Box
+    sx={{ 
+      left: { xs: '10px', sm: '50px' }, 
+      width: '100%',
+      maxWidth: { xs: '70px', sm: '80px' }, 
+    }}
+  >
+    <img
+      src='../../../Images/logo.png'
+      alt="Logo"
+      style={{
+        width: '100%', 
+        height: 'auto', 
+      }}
+    />
+  </Box>
+</Typography>
 
-          </Box>
-          <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center' }} >
-            <Grid container spacing={2} justifyContent="center">
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }}>
-                  <img src="../../../Images/Home.png" alt="Home Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Home</Typography>
-                </Button>
-              </Grid>
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleJob}>
-                  <img src="../../../Images/Job.png" alt="Job Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Job</Typography>
-                </Button>
-              </Grid>
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleSavedJob}>
-                  <img src="../../../Images/savejob.png" alt="Save Job Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Save Job</Typography>
-                </Button>
-              </Grid>
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleChat}>
-                  <img src="../../../Images/message.png" alt="Message Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Message</Typography>
-                </Button>
-              </Grid>
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleProfile}>
-                  <img src="../../../Images/Profile.png" alt="Profile Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Me</Typography>
-                </Button>
-              </Grid>
-              <Grid item>
-                <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleLogout}>
-                  <img src="../../../Images/logout.png" alt="Logout Icon" style={{ width: '30px', height: '30px' }} />
-                  <Typography variant="caption">Logout</Typography>
-                </Button>
-              </Grid>
-            </Grid>
-          </Box>
-        </Toolbar>
-      </AppBar>
+    
+    <Box sx={{ display: 'flex', alignItems: 'center', padding: { xs: '5px', sm: '10px' },marginTop:'10px' }}>
+  <TextField
+    id="search"
+    label="Search"
+    value={searchText}
+    onChange={handleSearchChange}
+    sx={{
+      width: { xs: '100%', sm: '500px' }, 
+      backgroundColor: '#e3f2fd',
+      borderRadius: '15px',
+      border: 'none',
+      '& .MuiOutlinedInput-root': {
+        '& fieldset': {
+          borderColor: 'transparent',
+        },
+      },
+    }}
+    InputProps={{
+      startAdornment: (
+        <InputAdornment position="start">
+          <SearchIcon />
+        </InputAdornment>
+      ),
+    }}
+  />
+  
+  {searchOpen && (
+    <Paper 
+      sx={{
+        position: 'absolute',
+        top: { xs: 60, sm: 55 }, 
+        left: 0,
+        right: 0,
+        maxHeight: '50vh',
+        overflowY: 'auto',
+        zIndex: 1200,
+        width: { xs: 'calc(100% - 20px)', sm: 'auto' },
+        margin: { xs: '0 10px', sm: '0' }, 
+      }}
+    >
+      <List>
+        {searchResults.map((user) => (
+          <ListItem 
+            key={user._id} 
+            component="div" 
+            onClick={() => handleSearchResultClick(user._id)} 
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', textAlign: 'left' }}
+          >
+            <ListItemAvatar>
+              <Avatar src={user.avatar} alt={user.name} />
+            </ListItemAvatar>
+            <ListItemText primary={user.name} secondary={user.title || 'User'} />
+          </ListItem>
+        ))}
+        {searchRecruiterResults.map((recruiter) => (
+          <ListItem 
+            key={recruiter._id} 
+            component="div" 
+            onClick={() => handleSearchRecruiterResultClick(recruiter._id)} 
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', textAlign: 'left' }}
+          >
+            <ListItemAvatar>
+              <Avatar src={recruiter.avatar} alt={recruiter.name} />
+            </ListItemAvatar>
+            <ListItemText primary={recruiter.name} secondary={recruiter.title || 'Recruiter'} />
+          </ListItem>
+        ))}
+      </List>
+    </Paper>
+  )}
+</Box>
+
+    
+{isSmallScreen ? (
+        <IconButton
+          edge="start"
+          color="primary"
+          aria-label="menu"
+          onClick={handleClick}
+          sx={{
+            zIndex: 1300,
+            position: 'relative',
+            transition: 'color 0.3s ease',
+            animation: isAnimating ? `${clickAnimation} 0.3s` : 'none',
+            '&:hover': {
+              color: '#ff5722', 
+            },
+          }}
+        >
+          <MenuIcon />
+        </IconButton>
+      ) : (
+      <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center', marginLeft: 'auto', marginRight: '50px' }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item>
+            <Button sx={{ color: 'black', display: 'flex', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleHome}>
+              <img src="../../../Images/Home.png" alt="Home Icon" style={{ width: '30px', height: '30px' }} />
+              <Typography variant="caption">Home</Typography>
+            </Button>
+          </Grid>
+          <Grid item>
+            <Button sx={{ color: 'black', display: 'flex', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleJob}>
+              <img src="../../../Images/Job.png" alt="Job Icon" style={{ width: '30px', height: '30px' }} />
+              <Typography variant="caption">Job</Typography>
+            </Button>
+          </Grid>
+          <Grid item>
+            <Button sx={{ color: 'black', display: 'flex', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleSavedJob}>
+              <img src="../../../Images/savejob.png" alt="Save Job Icon" style={{ width: '30px', height: '30px' }} />
+              <Typography variant="caption">Save Job</Typography>
+            </Button>
+          </Grid>
+          <Grid item>
+            <Button sx={{ color: 'black', display: 'flex', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleChat}>
+              <img src="../../../Images/message.png" alt="Message Icon" style={{ width: '30px', height: '30px' }} />
+              <Typography variant="caption">Message</Typography>
+            </Button>
+          </Grid>
+          <Grid item>
+            <Button sx={{ color: 'black', display: 'flex', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleProfile}>
+              <img src="../../../Images/Profile.png" alt="Profile Icon" style={{ width: '30px', height: '30px' }} />
+              <Typography variant="caption">Me</Typography>
+            </Button>
+          </Grid>
+          <Grid item>
+            <Button sx={{ color: 'black', display: 'flex', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleLogout}>
+              <img src="../../../Images/logout.png" alt="Logout Icon" style={{ width: '30px', height: '30px' }} />
+              <Typography variant="caption">Logout</Typography>
+            </Button>
+          </Grid>
+        </Grid>
+      </Box>
+    )}
+  </Toolbar>
+</AppBar>
+
+      <Drawer anchor="left" open={drawerOpen} onClose={handleDrawerToggle}>
+        <Box
+          sx={{ width: 250 }}
+          role="presentation"
+          onClick={handleDrawerToggle}
+          onKeyDown={handleDrawerToggle}
+        >
+          <List>
+            {menuItems}
+          </List>
+        </Box>
+      </Drawer>
+    </>
 
       <Container className="flex justify-center lg:pl-72" style={{ marginTop: '20px' }}>
         <Box className="w-full lg:w-2/3 bg-white rounded-lg shadow-md p-4 lg:ml-auto lg:mr-4 text-left mt-4 lg:mt-0">
@@ -716,107 +942,232 @@ const handleNewClose=()=>{
 
 
 
-          <Grid item xs={12} lg={9}>
-            <Grid container direction="column" spacing={3}>
-              {posts.map((post) => (
-                <Grid item key={post._id}>
-                  <Card sx={{
-                    borderRadius: '10px',
-                    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
-                    backgroundColor: '#fff',
-                    overflow: 'hidden',
-                    transition: 'transform 0.3s',
-                    '&:hover': { transform: 'scale(1.02)' }
-                  }}>
-                    <CardContent sx={{ position: 'relative' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
-                  <Avatar sx={{ width: 32, height: 32, marginRight: '10px' }} src={post.user.avatar} alt={post.user.name} />
-                  <Typography variant="subtitle1">{post.user.name}</Typography>
-                  
-                  <Box sx={{ position: 'absolute', top: '10px', right: '10px' }}>
-                  <Button onClick={() => handleReportClick(post._id)}>Report</Button>
-                </Box>
-                  <Dialog open={openDialog} onClose={handleDialogClose}>
-                  <DialogTitle>Report Post</DialogTitle>
-                  <DialogContent>
-                    <DialogContentText>
-                      Please select a reason for reporting
-                    </DialogContentText>
-                    <FormControl fullWidth margin="dense">
-                      <InputLabel>Reason</InputLabel>
-                      <Select
-                        value={reportReason}
-                        onChange={(e) => setReportReason(e.target.value)}
-                        label="Reason"
-                      >
-                        {reasons.map((reason) => (
-                          <MenuItem key={reason.value} value={reason.value}>
-                            {reason.label}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </DialogContent>
-                  <DialogActions>
-                    <Button onClick={handleDialogClose} color="primary">
-                      Cancel
-                    </Button>
-                    <Button onClick={() => handleReportSubmit(reportingPostId, reportReason)} color="primary" disabled={!reportReason}>
-                      Submit
-                    </Button>
-                  </DialogActions>
-                </Dialog>
-                </Box> 
-                      <Typography variant="caption" style={{ color: "gray" }}>{post.user.title}</Typography>
-
-                      <Typography variant="body1" sx={{ marginBottom: '10px', display: 'block', whiteSpace: 'pre-line' }} dangerouslySetInnerHTML={{ __html: isExpanded(post._id) ? post.description : truncateText(post.description, 100) }} />
-
-                      <img src={post.image} alt={post.description} style={{ width: '100%', borderRadius: '5px', marginBottom: '10px', cursor: 'pointer' }} onClick={() => handleOpen(post)} />
-                      <Typography variant="caption" color="textSecondary" sx={{ display: 'block', marginBottom: '10px' }}>
-                        {new Date(post.createdAt).toLocaleString()}
-                      </Typography>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                      <IconButton
-                      aria-label="like"
-                      onClick={() => toggleLike(post._id)}
-                      sx={{ padding: '5px', color: '#3f51b5' }}
+  <Grid item xs={12} lg={9}>
+  <InfiniteScroll
+  dataLength={posts.length} 
+  next={() => setPage(prevPage => prevPage + 1)} 
+  hasMore={hasMore} 
+  loader={<h4>Loading...</h4>} 
+  endMessage={<p style={{ textAlign: 'center' }}>No more posts</p>}
+  scrollableTarget="scrollable-container" 
+  style={{ overflow: 'unset' }} 
+>
+  <Grid 
+    container 
+    direction="column" 
+    spacing={3} 
+    sx={{ 
+      width: '1000px', 
+      maxWidth: { 
+        xs: '130%', 
+        sm: '850px', 
+        md: '900px', 
+        lg: '800px', 
+        xl: '790px' 
+      }, 
+      margin: '0 auto', 
+      ml: { xs: '-60px', sm: '-120px', md: '-120px', lg: '-20px', xl: '-15px' }
+    }}
+  >
+    {posts.map((post) => (
+      <Grid
+        item
+        key={post._id}
+        xs={12} 
+        sm={11} 
+        md={10} 
+        lg={9} 
+        xl={8} 
+      >
+        <Card
+          sx={{
+            borderRadius: '10px',
+            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+            backgroundColor: '#fff',
+            overflow: 'hidden',
+            transition: 'transform 0.3s',
+            '&:hover': { transform: 'scale(1.02)' },
+            width: '100%', 
+            maxWidth: '900px', 
+          }}
+        >
+          <CardContent sx={{ position: 'relative' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+              <Avatar
+                sx={{ width: 32, height: 32, marginRight: '10px' }}
+                src={post.user?.avatar}
+                alt={post.user?.name}
+              />
+              <Typography variant="subtitle1">{post.user?.name}</Typography>
+              <Box sx={{ position: 'absolute', top: '10px', right: '10px' }}>
+                <Button onClick={() => handleReportClick(post._id)}>Report</Button>
+              </Box>
+              <Dialog open={openDialog} onClose={handleDialogClose}>
+                <DialogTitle>Report Post</DialogTitle>
+                <DialogContent>
+                  <DialogContentText>
+                    Please select a reason for reporting
+                  </DialogContentText>
+                  <FormControl fullWidth margin="dense">
+                    <InputLabel>Reason</InputLabel>
+                    <Select
+                      value={reportReason}
+                      onChange={(e) => setReportReason(e.target.value)}
+                      label="Reason"
                     >
-                      {post.likes?.some((like) => like.userId === userId) ? (
-                        <ThumbUpAltIcon sx={{ fontSize: '24px', color: 'blue' }}  />
-                      ) : (
-                        <ThumbUpAltIcon  sx={{ fontSize: '24px', color: 'gray' }}/>
-                      )}
-                      <Typography variant="body2">{post.likes?.length || 0} Likes</Typography>
-                    </IconButton>
+                      {reasons.map((reason) => (
+                        <MenuItem key={reason.value} value={reason.value}>
+                          {reason.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </DialogContent>
+                <DialogActions>
+                  <Button onClick={handleDialogClose} color="primary">
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() =>
+                      handleReportSubmit(reportingPostId, reportReason)
+                    }
+                    color="primary"
+                    disabled={!reportReason}
+                  >
+                    Submit
+                  </Button>
+                </DialogActions>
+              </Dialog>
+            </Box>
+            <Typography variant="caption" style={{ color: 'gray' }}>
+              {post.user?.title}
+            </Typography>
 
-                    <IconButton aria-label="comment" sx={{ padding: '5px', color: '#ff9800' }} onClick={() => handleCommentIconClick(post._id)}>
-                    <CommentIcon onClick={() => handleNewOpen(post)} />
-
-                          <Typography variant="body2">{commentCounts} </Typography>
-                        </IconButton>
-                      </Box>
-                      <Box>
-                      <TextareaAutosize
-                          minRows={3}
-                          placeholder="Add a comment..."
-                          style={{ width: '100%', padding: '10px', borderRadius: '5px', borderColor: '#ccc', resize: 'none' }}
-                          value={commentText[post._id] || ''}
-                          onChange={(e) => handleCommentChange(post._id, e.target.value)}
-                        />
-                      <Button
-                        variant="contained"
-                        sx={{ marginTop: '10px', backgroundColor: '#3f51b5', color: '#fff' }}
-                        onClick={() => handleCommentSubmit(post._id)}
+            <Typography
+              variant="body1"
+              sx={{
+                marginBottom: '10px',
+                display: 'block',
+                wordBreak: 'break-word',
+                whiteSpace: 'pre-wrap',
+              }}
+            >
+              {post.description?.length > maxLength &&
+              !showFullDescription[post._id] ? (
+                <>
+                  {post.description.substring(0, maxLength)}...
+                  <span
+                    style={{ color: '#3f51b5', cursor: 'pointer' }}
+                    onClick={() => toggleDescription(post._id)}
+                  >
+                    {'  '}more
+                  </span>
+                </>
+              ) : (
+                <>
+                  {post.description}
+                  {post.description?.length > maxLength &&
+                    showFullDescription[post._id] && (
+                      <span
+                        style={{ color: '#3f51b5', cursor: 'pointer' }}
+                        onClick={() => toggleDescription(post._id)}
                       >
-                        Comment
-                      </Button>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          </Grid>
+                        {' '}
+                        less
+                      </span>
+                    )}
+                </>
+              )}
+            </Typography>
+
+            <img
+              src={post.image}
+              alt={post.description}
+              style={{
+                width: '100%',
+                borderRadius: '5px',
+                marginBottom: '10px',
+                cursor: 'pointer',
+              }}
+              onClick={() => handleOpen(post)}
+            />
+            <Typography
+              variant="caption"
+              color="textSecondary"
+              sx={{ display: 'block', marginBottom: '10px' }}
+            >
+              {new Date(post.createdAt).toLocaleString()}
+            </Typography>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                marginBottom: '10px',
+              }}
+            >
+              <IconButton
+                aria-label="like"
+                onClick={() => toggleLike(post._id)}
+                sx={{ padding: '5px', color: '#3f51b5' }}
+              >
+                {post.likes?.some((like) => like.userId === userId) ? (
+                  <ThumbUpAltIcon sx={{ fontSize: '24px', color: 'blue' }} />
+                ) : (
+                  <ThumbUpAltIcon sx={{ fontSize: '24px', color: 'gray' }} />
+                )}
+                <Typography variant="body2">
+                  {post.likes?.length || 0} Likes
+                </Typography>
+              </IconButton>
+
+              <IconButton
+                aria-label="comment"
+                sx={{ padding: '5px', color: '#ff9800' }}
+                onClick={() => handleCommentIconClick(post._id)}
+              >
+                <CommentIcon onClick={() => handleNewOpen(post)} />
+                <Typography variant="body2">
+                  {commentCounts[post._id] || 0}
+                </Typography>
+              </IconButton>
+            </Box>
+            <Box>
+              <TextareaAutosize
+                minRows={3}
+                placeholder="Add a comment..."
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  borderRadius: '5px',
+                  borderColor: '#ccc',
+                  resize: 'none',
+                }}
+                value={commentText[post._id] || ''}
+                onChange={(e) => handleCommentChange(post._id, e.target.value)}
+              />
+              <Button
+                variant="contained"
+                sx={{
+                  marginTop: '10px',
+                  backgroundColor: '#3f51b5',
+                  color: '#fff',
+                }}
+                onClick={() => handleCommentSubmit(post._id)}
+              >
+                Comment
+              </Button>
+            </Box>
+          </CardContent>
+        </Card>
+      </Grid>
+    ))}
+  </Grid>
+  </InfiniteScroll>
+</Grid>
+
+
+
+
         </Grid>
       </Container>
 
@@ -972,25 +1323,23 @@ const handleNewClose=()=>{
         </Button>
 
         {expandedReplies[comment._id] && comment.replies && (
-          <Box sx={{ pl: 4, pt: 2 }}>
-            {comment.replies.map((reply, replyIndex) => (
-              
-              <Box key={replyIndex} mt={1}>
-              <Divider sx={{ mb: 1 }} />
-              <Typography variant="body1" sx={{ mb: 1 }}>
-                {reply?.username}
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 1, fontSize: '0.875rem', color: 'text.secondary' }}>
-                {reply.message}
-              </Typography>
-              <Typography variant="caption" color="textSecondary">
-                {formatDistanceToNow(new Date(reply.createdAt), { addSuffix: true })}
-              </Typography>
-            </Box>
-            
-            ))}
-          </Box>
-        )}
+  <Box sx={{ pl: 4, pt: 2 }}>
+    {comment.replies.map((reply, replyIndex) => (
+      <Box key={replyIndex} mt={1}>
+        <Divider sx={{ mb: 1 }} />
+        <Typography variant="body1" sx={{ mb: 1 }}>
+          {reply?.username}
+        </Typography>
+        <Typography variant="body2" sx={{ mb: 1, fontSize: '0.875rem', color: 'text.secondary' }}>
+          {reply.message}
+        </Typography>
+        <Typography variant="caption" color="textSecondary">
+          {formatDistanceToNow(new Date(reply.createdAt), { addSuffix: true })}
+        </Typography>
+      </Box>
+    ))}
+  </Box>
+)}
 
         {commentOptions && commentId === comment._id && (
           <Button

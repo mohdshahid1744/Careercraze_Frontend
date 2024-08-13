@@ -173,7 +173,7 @@ function RecruiterManagement() {
       );
 
     return (
-        <div className="flex min-h-screen bg-gray-200">
+        <div className="flex min-h-screen " style={{backgroundColor:'beige'}}>
             <Drawer
                 variant="permanent"
                 className="w-60"
@@ -224,7 +224,7 @@ function RecruiterManagement() {
                                         <TableCell align="left">Mobile</TableCell>
                                         <TableCell align="left">Company Name</TableCell>
                                         <TableCell align="left">Company E-Mail</TableCell>
-                                        <TableCell align="left">Active</TableCell>
+                                        {/* <TableCell align="left">Active</TableCell> */}
                                         <TableCell align="left">Status</TableCell>
                                     </TableRow>
                                 </TableHead>
@@ -254,7 +254,7 @@ function RecruiterManagement() {
                                             <TableCell align="left">
                                                 {user.companyEmail || 'Not Available'}
                                             </TableCell>
-                                            <TableCell align="left">
+                                            {/* <TableCell align="left">
                                                 <Button
                                                     variant="contained"
                                                     color={
@@ -268,7 +268,7 @@ function RecruiterManagement() {
                                                         ? 'Block'
                                                         : 'Unblock'}
                                                 </Button>
-                                            </TableCell>
+                                            </TableCell> */}
                                             <TableCell align="left">
                                                 {user.status === 'pending' && (
                                                     <>

@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { axiosRecruiterInstance } from '../../../utils/axios/Axios';
 import { axiosUserInstance } from '../../../utils/axios/Axios';
-import { useParams } from 'react-router-dom';
+import { useParams,useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { Box, Typography, CircularProgress, Button, Grid, Paper, Chip } from '@mui/material';
+import { Box, Typography, CircularProgress, Button, Grid, Paper, Chip,IconButton } from '@mui/material';
 import ApplyModal from './ApplyModal';
 import { RootState } from '../../../Redux/Store/Store';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
 function SingleJob() {
   const [jobDetails, setJobDetails] = useState<any>(null);
@@ -13,11 +14,13 @@ function SingleJob() {
   const { id } = useParams<{ id: string }>();
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
   const userId = useSelector((state: RootState) => state.user.UserId);
-
+  const navigate = useNavigate()
   const handleApply = () => {
     setIsApplyModalOpen(true);
   };
-
+  const handleHome = () => {
+    navigate('/job');
+  };
   useEffect(() => {
     const fetchJobDetails = async () => {
       try {
@@ -75,6 +78,9 @@ function SingleJob() {
 
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: 'beige', padding: '20px' }}>
+       <IconButton onClick={handleHome} sx={{ marginRight: '16px' }}>
+          <ArrowBackIcon />
+        </IconButton>
       <Typography variant="h4" component="h1" gutterBottom sx={{ textAlign: 'center' }}>
         Job Details
       </Typography>

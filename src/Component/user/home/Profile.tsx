@@ -50,7 +50,19 @@ function Profile() {
   const [selectedPost, setSelectedPost] = useState<any>(null);
 const [isFollowersModalOpen, setIsFollowersModalOpen] = useState(false);
 const [isFollowingModalOpen, setIsFollowingModalOpen] = useState(false);
+const [showOptions, setShowOptions] = useState<{ [key: string]: boolean }>({});
 
+const handlePostUpdated = (updatedPost:any) => {
+  setPosts((prevPosts) => prevPosts.map((post) => 
+    post._id === updatedPost._id ? updatedPost : post
+  ));
+};
+const toggleOptions = (postId: string) => {
+  setShowOptions((prevState) => ({
+    ...prevState,
+    [postId]: !prevState[postId],
+  }));
+};
   
   const handleMenuClick = (event:any) => {
     setAnchorEl(event.currentTarget);
@@ -578,19 +590,14 @@ const handleFollowingClick = () => {
               </Box>
               {id === loggedInUserId && (
 
-              <Box sx={{ marginLeft: 'auto' }}>
-                <IconButton onClick={handleMenuClick}>
-                  <MoreVertIcon />
-                </IconButton>
-                <Menu
-                  anchorEl={anchorEl}
-                  open={Boolean(anchorEl)}
-                  onClose={handleMenuClose}
-                >
-                  <h2>{post._id}</h2>
-                  <MenuItem onClick={() => handleEdit(post)}>Edit</MenuItem>
-                  <MenuItem onClick={() => handleDelete(post._id)}>Delete</MenuItem>
-                </Menu>
+              <Box sx={{ marginLeft: 'auto', position: 'relative' }}>
+              <Typography onClick={() => toggleOptions(post._id)} sx={{ cursor: 'pointer' }}>...</Typography>
+              {showOptions[post._id] && (
+                <Box sx={{ position: 'absolute', right: 0, backgroundColor: 'white', border: '1px solid #ccc', borderRadius: '5px', zIndex: 1 }}>
+                  <Typography sx={{ padding: '8px', cursor: 'pointer' }} onClick={() => { handleEdit(post); toggleOptions(post._id); }}>Edit</Typography>
+                  <Typography sx={{ padding: '8px', cursor: 'pointer' }} onClick={() => { handleDelete(post._id); toggleOptions(post._id); }}>Delete</Typography>
+                </Box>
+              )}
               </Box>
               )}
             </Box>
@@ -661,12 +668,13 @@ const handleFollowingClick = () => {
         experienceDetails={selectedExperience}
         userId={id ?? ''}
       />
-       <PostEditModal
-            open={isPostModalOpen}
-            onClose={() => setIsPostModalOpen(false)}
-            fetchProfileData={fetchUserProfile}
-            postDetails={selectedPost}
-          />
+         <PostEditModal
+          open={isPostModalOpen}
+          onClose={() => setIsPostModalOpen(false)}
+          fetchProfileData={fetchUserProfile}
+          postDetails={selectedPost}
+          onPostUpdated={handlePostUpdated}
+        />
               <Modal
             isOpen={isFollowingModalOpen}
             onClose={() => setIsFollowingModalOpen(false)}

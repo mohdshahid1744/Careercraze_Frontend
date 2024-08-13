@@ -2,14 +2,34 @@ import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { axiosRecruiterInstance, axiosUserInstance } from '../../../utils/axios/Axios';
-import { Box, Typography, Button, Grid, AppBar, Toolbar, TextField, InputAdornment, Select, MenuItem, SelectChangeEvent, Pagination, Snackbar, Alert, IconButton } from '@mui/material';
+import { Box, Typography, Button, Grid, AppBar, Toolbar, TextField, InputAdornment, Select,
+   MenuItem, SelectChangeEvent, Pagination, Snackbar, Alert, IconButton,useMediaQuery,ListItem,ListItemText,Drawer,List,ListItemIcon,Divider } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
-import BookmarkIcon from '@mui/icons-material/Bookmark';
 import { userLogout } from '../../../Redux/Slice/userSlice';
 import { RootState } from '../../../Redux/Store/Store';
 import { setJobs } from '../../../Redux/Slice/jobSlice';
-
+import { WorkOutline as JobIcon } from '@mui/icons-material';
+import { Theme } from '@mui/material/styles';
+import MenuIcon from '@mui/icons-material/Menu';
+import HomeIcon from '@mui/icons-material/Home';
+import WorkIcon from '@mui/icons-material/Work';
+import BookmarkIcon from '@mui/icons-material/Bookmark';
+import ChatIcon from '@mui/icons-material/Chat';
+import PersonIcon from '@mui/icons-material/Person';
+import ExitToAppIcon from '@mui/icons-material/ExitToApp';
+import { keyframes } from '@emotion/react';
+const clickAnimation = keyframes`
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.2) rotate(180deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+`;
 const Job = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -25,7 +45,19 @@ const Job = () => {
   
   const user = useSelector((state: RootState) => state.user.UserId);
   const jobPosts = useSelector((state: RootState) => state.job.jobs);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+const isSmallScreen = useMediaQuery((theme: Theme) => theme.breakpoints.down('lg'));
 
+const [isAnimating, setIsAnimating] = useState(false);
+
+const handleClick = () => {
+  setIsAnimating(true);
+  handleDrawerToggle();
+  setTimeout(() => setIsAnimating(false), 300); 
+};
+  const handleDrawerToggle = () => {
+    setDrawerOpen(!drawerOpen);
+  };
   useEffect(() => {
     const fetchJobs = async () => {
       try {
@@ -186,48 +218,131 @@ const Job = () => {
     
     
   };
-  
+  const handleAppliedJobs=()=>{
+    navigate('/appliedjobs')
+  }
+  const handleChat=()=>{
+    navigate('/chat')
+  }
+  const handleJob = () => {
+    navigate('/job');
+  };
+
+  const handleSavedJob = () => {
+    navigate("/saved-jobs");
+  };
+  const menuItems = (
+    <List>
+      <ListItem button onClick={handleHome} sx={{ '&:hover': { backgroundColor: '#f0f0f0' } }}>
+        <ListItemIcon>
+          <HomeIcon />
+        </ListItemIcon>
+        <ListItemText primary="Home" />
+      </ListItem>
+      <ListItem button onClick={handleJob} sx={{ '&:hover': { backgroundColor: '#f0f0f0' } }}>
+        <ListItemIcon>
+          <WorkIcon />
+        </ListItemIcon>
+        <ListItemText primary="Job" />
+      </ListItem>
+      <ListItem button onClick={handleSavedJob} sx={{ '&:hover': { backgroundColor: '#f0f0f0' } }}>
+        <ListItemIcon>
+          <BookmarkIcon />
+        </ListItemIcon>
+        <ListItemText primary="Saved Jobs" />
+      </ListItem>
+      <ListItem button onClick={handleChat} sx={{ '&:hover': { backgroundColor: '#f0f0f0' } }}>
+        <ListItemIcon>
+          <ChatIcon />
+        </ListItemIcon>
+        <ListItemText primary="Messages" />
+      </ListItem>
+      <ListItem button onClick={handleProfile} sx={{ '&:hover': { backgroundColor: '#f0f0f0' } }}>
+        <ListItemIcon>
+          <PersonIcon />
+        </ListItemIcon>
+        <ListItemText primary="Profile" />
+      </ListItem>
+      <ListItem button onClick={handleLogout} sx={{ '&:hover': { backgroundColor: '#f0f0f0' } }}>
+        <ListItemIcon>
+          <ExitToAppIcon />
+        </ListItemIcon>
+        <ListItemText primary="Logout" />
+      </ListItem>
+      <Divider />
+    </List>
+  );
 
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: 'beige' }}>
+      <>
       <AppBar position="static" sx={{ height: '85px', backgroundColor: 'white' }}>
         <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            <img
-              src='../../../Images/logo.png'
-              alt="Logo"
-              className="w-16 h-auto absolute"
-              style={{ top: '10px', left: '50px' }}
-            />
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <TextField
-              id="search"
-              label="Search by location"
-              value={searchLocation}
-              onChange={handleSearchChange}
-              sx={{
-                width: '500px',
-                backgroundColor: 'skyblue',
-                borderRadius: "15px",
-                top: '15px',
-                border: "none",
-                '& .MuiOutlinedInput-root': {
-                  '& fieldset': {
-                    borderColor: 'transparent',
-                  },
-                },
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Box>
-          <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center' }}>
+        <Typography variant="h6" sx={{ flexGrow: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
+  <Box
+    sx={{
+      top: { xs: '5px', sm: '10px' }, 
+      left: { xs: '10px', sm: '50px' }, 
+      width: '100%',
+      maxWidth: { xs: '70px', sm: '80px' }, 
+    }}
+  >
+    <img
+      src='../../../Images/logo.png'
+      alt="Logo"
+      style={{
+        width: '100%', 
+        height: 'auto', 
+      }}
+    />
+  </Box>
+</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', padding: { xs: '5px', sm: '10px' },marginTop:'10px' }}>
+  <TextField
+    id="search"
+    label="Search by location"
+    value={searchLocation}
+    onChange={handleSearchChange}
+    sx={{
+      width: { xs: '100%', sm: '400px', md: '500px' }, 
+      backgroundColor: 'skyblue',
+      borderRadius: "15px",
+      border: "none",
+      '& .MuiOutlinedInput-root': {
+        '& fieldset': {
+          borderColor: 'transparent',
+        },
+      },
+    }}
+    InputProps={{
+      startAdornment: (
+        <InputAdornment position="start">
+          <SearchIcon />
+        </InputAdornment>
+      ),
+    }}
+  />
+</Box>
+{isSmallScreen ? (
+        <IconButton
+          edge="start"
+          color="primary"
+          aria-label="menu"
+          onClick={handleClick}
+          sx={{
+            zIndex: 1300,
+            position: 'relative',
+            transition: 'color 0.3s ease',
+            animation: isAnimating ? `${clickAnimation} 0.3s` : 'none',
+            '&:hover': {
+              color: '#ff5722', 
+            },
+          }}
+        >
+          <MenuIcon />
+        </IconButton>
+      ) :(
+    <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center' }}>
             <Grid container spacing={2} justifyContent="center">
               <Grid item>
                 <Button sx={{ color: 'black', flexDirection: 'column', alignItems: 'center', textTransform: 'none' }} onClick={handleHome}>
@@ -267,27 +382,60 @@ const Job = () => {
               </Grid>
             </Grid>
           </Box>
+          )}
         </Toolbar>
       </AppBar>
-      <Typography variant="h4" component="h1" gutterBottom>
-        Job List
-      </Typography>
-      <Box sx={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-        <Select
-          value={employmentType}
-          onChange={handleEmploymentTypeChange}
-          displayEmpty
-          sx={{ minWidth: 200 }}
+      <Drawer anchor="left" open={drawerOpen} onClose={handleDrawerToggle}>
+        <Box
+          sx={{ width: 250 }}
+          role="presentation"
+          onClick={handleDrawerToggle}
+          onKeyDown={handleDrawerToggle}
         >
-          <MenuItem value="">
-            <em>All Employment Types</em>
-          </MenuItem>
-          <MenuItem value="Full-Time">Full-Time</MenuItem>
-          <MenuItem value="Part-Time">Part-Time</MenuItem>
-          <MenuItem value="Remote">Remote</MenuItem>
-          <MenuItem value="Internship">Internship</MenuItem>
-        </Select>
-      </Box>
+          <List>
+            {menuItems}
+          </List>
+        </Box>
+      </Drawer>
+      </>
+      <Box sx={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', marginBottom: '20px',marginTop:'10px' }}>
+  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+    <Select
+      value={employmentType}
+      onChange={handleEmploymentTypeChange}
+      displayEmpty
+      sx={{ minWidth: 200 }}
+    >
+      <MenuItem value="">
+        <em>All Employment Types</em>
+      </MenuItem>
+      <MenuItem value="Full-Time">Full-Time</MenuItem>
+      <MenuItem value="Part-Time">Part-Time</MenuItem>
+      <MenuItem value="Remote">Remote</MenuItem>
+      <MenuItem value="Internship">Internship</MenuItem>
+    </Select>
+  </Box>
+  <Box>
+  <Button
+  variant="contained"
+  color="primary"
+  startIcon={<JobIcon />}
+  onClick={handleAppliedJobs}
+  sx={{
+    backgroundColor: 'transparent', 
+    color: 'primary.main', 
+    borderColor: 'primary.main', 
+    '&:hover': {
+      backgroundColor: 'rgba(0, 0, 0, 0.1)', 
+    },
+  }}
+>
+  Applied Jobs
+</Button>
+
+  </Box>
+</Box>
+
       <Box className="flex flex-wrap justify-center">
         {currentJobs.length === 0 && (
           <Typography variant="body1" gutterBottom>

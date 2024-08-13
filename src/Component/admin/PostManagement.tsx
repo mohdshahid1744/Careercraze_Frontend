@@ -71,7 +71,7 @@ function PostManagement() {
   }, []);
 
   return (
-    <div className="flex min-h-screen bg-gray-200">
+    <div className="flex min-h-screen " style={{backgroundColor:'beige'}}>
       <Drawer
         variant="permanent"
         className="w-60"

@@ -1,24 +1,49 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Box, Typography, CircularProgress, Button, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { Box, Typography, CircularProgress, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Grid, Button, Tooltip,Card,CardContent } from '@mui/material';
 import { axiosRecruiterInstance } from '../../../utils/axios/Axios';
 import { useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { RootState } from '../../../Redux/Store/Store';
+import DownloadIcon from '@mui/icons-material/Download';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import ThumbUpIcon from '@mui/icons-material/ThumbUp';
+import ThumbDownIcon from '@mui/icons-material/ThumbDown';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
 function Candidate() {
   const [applicants, setApplicants] = useState<any[]>([]);
   const [selectedApplicant, setSelectedApplicant] = useState<any>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [openDialog, setOpenDialog] = useState(false);
+  const [confirmRejectDialog, setConfirmRejectDialog] = useState(false);
+  const [confirmShortlistDialog, setConfirmShortlistDialog] = useState(false);
+  const [actionApplicantId, setActionApplicantId] = useState<string | null>(null);
   const { jobid } = useParams<{ jobid: string }>();
   const userId = useSelector((store: RootState) => store.recruiter.UserId);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchApplicants = async () => {
       try {
         const response = await axiosRecruiterInstance.get(`/recruiter/candidates/${jobid}`);
-        console.log('Fetched applicants:', response.data.applicants);
-        setApplicants(response.data.applicants || []);
+        const applicantsData = response.data.applicants || [];
+        const updatedApplicants = await Promise.all(applicantsData.map(async (applicant: any) => {
+          try {
+            const profileResponse = await axiosRecruiterInstance.get(`/getuser/${applicant.userId}`);
+            const profile = profileResponse.data.response;
+
+            return {
+              ...applicant,
+              avatar: profile.avatar, 
+            };
+          } catch (error) {
+            console.error(`Error fetching profile for applicant ${applicant.userId}:`, error);
+            return applicant; 
+          }
+        }));
+
+        setApplicants(updatedApplicants);
       } catch (error) {
         console.error('Error fetching applicants:', error);
         setApplicants([]);
@@ -38,8 +63,6 @@ function Candidate() {
       console.error('Error fetching applicant profile:', error);
     } finally {
       setLoadingProfile(false);
-      console.log(selectedApplicant,'---------');
-      
       setOpenDialog(true);
     }
   };
@@ -51,33 +74,71 @@ function Candidate() {
   const handleCloseDialog = () => {
     setOpenDialog(false);
   };
-
+  const handleHome = () => {
+    navigate('/recruiter/recHome');
+  };
   const handlePdfDownload = async (cvUrl: string) => {
     try {
-        if (cvUrl) {
-            const response = await fetch(`http://localhost:3001/recruiter/getPdf?url=${encodeURIComponent(cvUrl)}`);
-
-            if (!response.ok) {
-                console.error("Error while fetch cv using url");
-                return;
-            }
-
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', 'resume.pdf');
-            document.body.appendChild(link);
-            link.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(link);
-        } else {
-            console.error("ERROR: Invalid CV URL");
+      if (cvUrl) {
+        const response = await fetch(`http://localhost:3001/recruiter/getPdf?url=${encodeURIComponent(cvUrl)}`);
+        if (!response.ok) {
+          console.error("Error while fetching CV using URL");
+          return;
         }
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'resume.pdf');
+        document.body.appendChild(link);
+        link.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(link);
+      } else {
+        console.error("ERROR: Invalid CV URL");
+      }
     } catch (error) {
-        console.error("ERROR: Failed to download PDF", error);
+      console.error("ERROR: Failed to download PDF", error);
     }
-};
+  };
+
+  const updateApplicantStatus = async (applicantId: string, status: string) => {
+    try {
+      await axiosRecruiterInstance.post('/recruiter/updateapplystatus', { jobId: jobid, userId: applicantId, status });
+      setApplicants(applicants.map(applicant => 
+        applicant.userId === applicantId ? { ...applicant, status } : applicant
+      ));
+      console.log(`Applicant ${applicantId} status updated to ${status}`);
+    } catch (error) {
+      console.error(`Error updating applicant status to ${status}:`, error);
+    }
+  };
+
+  const handleReject = (applicantId: string) => {
+    setActionApplicantId(applicantId);
+    setConfirmRejectDialog(true);
+  };
+
+  const handleShortlist = (applicantId: string) => {
+    setActionApplicantId(applicantId);
+    setConfirmShortlistDialog(true);
+  };
+
+  const handleConfirmReject = async () => {
+    if (actionApplicantId) {
+      await updateApplicantStatus(actionApplicantId, 'rejected');
+      setConfirmRejectDialog(false);
+      setActionApplicantId(null);
+    }
+  };
+
+  const handleConfirmShortlist = async () => {
+    if (actionApplicantId) {
+      await updateApplicantStatus(actionApplicantId, 'shortlisted');
+      setConfirmShortlistDialog(false);
+      setActionApplicantId(null);
+    }
+  };
 
   if (applicants.length === 0) {
     return (
@@ -86,82 +147,197 @@ function Candidate() {
       </Box>
     );
   }
-
+  const totalApplicants = applicants.length;
+  const achievedCandidates = applicants.filter(applicant => applicant.status === 'shortlisted').length;
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#f0f2f5', padding: '40px' }}>
-      <Typography variant="h4" component="h1" gutterBottom sx={{ color: '#333', fontWeight: 'bold' }}>
-        Applicants for Job
+    <Box sx={{ minHeight: '100vh', backgroundColor: 'beige', padding: '40px' }}>
+       <Box sx={{ display: 'flex', alignItems: 'center', marginBottom: '20px' }}>
+        <IconButton onClick={handleHome} sx={{ marginRight: '16px' }}>
+          <ArrowBackIcon />
+        </IconButton>
+        <Typography variant="h4" component="h1" gutterBottom sx={{ color: '#333', fontWeight: 'bold' }}>
+          Candidates
+        </Typography>
+      </Box>
+      <Box sx={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+  <Card 
+    sx={{ 
+      display: 'flex', 
+      justifyContent: 'space-between', 
+      width: '100%', 
+      maxWidth: '100%', 
+      height: '60px', 
+      boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)', 
+      borderRadius: '8px',
+      overflow: 'hidden' 
+    }}
+  >
+    <CardContent 
+      sx={{ 
+        flex: 1, 
+        padding: '8px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        textAlign: 'center' 
+      }}
+    >
+      <Typography 
+        variant="h6" 
+        sx={{ color: '#333', fontWeight: 'bold', fontSize: '14px' }} 
+      >
+        Total Candidates
       </Typography>
-      {applicants.map((applicant, index) => (
-        <Box
-          key={index}
-          sx={{
-            padding: '20px',
-            backgroundColor: '#fff',
-            borderRadius: '15px',
-            marginBottom: '20px',
-            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
-            transition: 'transform 0.2s, box-shadow 0.2s',
-            '&:hover': {
-              transform: 'scale(1.03)',
-              boxShadow: '0 6px 12px rgba(0, 0, 0, 0.15)',
-            },
-          }}
-        >
-          {applicant.avatar && (
-            <Box sx={{ marginBottom: '10px', textAlign: 'center' }}>
-              <img src={applicant.avatar} alt={`${applicant.name}'s avatar`} style={{ borderRadius: '50%', width: '50px', height: '50px', objectFit: 'cover' }} />
-            </Box>
-          )}
-          <Typography variant="h6" sx={{ color: '#333', fontWeight: '600', marginBottom: '10px' }}>
-            {applicant.name}
-          </Typography>
-          <Typography variant="body1" sx={{ color: '#666', marginBottom: '5px' }}>
-            Email: {applicant.email}
-          </Typography>
-          <Typography variant="body1" sx={{ color: '#666', marginBottom: '15px' }}>
-            Mobile: {applicant.mobile}
-          </Typography>
-          <Box sx={{ display: 'flex', gap: '10px' }}>
-            <Button
-              onClick={() => handlePdfDownload(applicant.cv)}
+      <Typography 
+        variant="h4" 
+        sx={{ color: '#007BFF', fontWeight: 'bold', fontSize: '18px' }} 
+      >
+        {totalApplicants}
+      </Typography>
+    </CardContent>
+    <CardContent 
+      sx={{ 
+        flex: 1, 
+        borderLeft: '1px solid #ddd', 
+        padding: '8px', 
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        textAlign: 'center' 
+      }}
+    >
+      <Typography 
+        variant="h6" 
+        sx={{ color: '#333', fontWeight: 'bold', fontSize: '14px',marginTop:'15px' }} 
+      >
+        Achieved Candidates
+      </Typography>
+      <Typography 
+        variant="h4" 
+        sx={{ color: '#28a745', fontWeight: 'bold', fontSize: '18px' }} 
+      >
+        {achievedCandidates}
+      </Typography>
+    </CardContent>
+  </Card>
+</Box>
+      <Grid container spacing={3}>
+        {applicants.map((applicant, index) => (
+          <Grid item xs={12} sm={6} md={4} key={index}>
+            <Box
               sx={{
-                textTransform: 'none',
-                backgroundColor: '#007BFF',
-                color: '#fff',
-                padding: '10px 20px',
-                borderRadius: '5px',
-                fontWeight: 'bold',
-                display: 'inline-block',
-                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                transition: 'all 0.3s ease',
+                padding: '20px',
+                backgroundColor: '#fff',
+                borderRadius: '10px',
+                boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+                textAlign: 'center',
+                height: '100%',
                 '&:hover': {
-                  backgroundColor: '#0056b3',
-                  transform: 'scale(1.05)',
+                  transform: 'scale(1.03)',
                   boxShadow: '0 6px 12px rgba(0, 0, 0, 0.15)',
                 },
               }}
             >
-              Download CV
-            </Button>
+             {applicant.avatar && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '10px' }}>
+              <img
+                src={applicant.avatar}
+                alt={`${applicant.name}'s avatar`}
+                style={{
+                  borderRadius: '50%',
+                  width: '100px',
+                  height: '100px',
+                  objectFit: 'cover',
+                }}
+              />
+            </Box>
+          )}
 
-            <Button
-              variant="contained"
-              onClick={() => handleViewProfile(applicant.userId)}
-              sx={{
-                textTransform: 'none',
-                backgroundColor: '#007BFF',
-                color: '#fff',
-                '&:hover': {
-                  backgroundColor: '#0056b3',
-                },
-              }}
-            >
-              View Profile
-            </Button>
-          </Box>
-        </Box>
-      ))}
+              <Typography variant="h6" sx={{ color: '#333', fontWeight: '600', marginBottom: '10px' }}>
+                {applicant.name}
+              </Typography>
+              <Typography variant="body1" sx={{ color: '#666', marginBottom: '5px' }}>
+                Email: {applicant.email}
+              </Typography>
+              <Typography variant="body1" sx={{ color: '#666', marginBottom: '15px' }}>
+                Mobile: {applicant.mobile}
+              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <Tooltip title="Download CV" arrow>
+                  <IconButton
+                    onClick={() => handlePdfDownload(applicant.cv)}
+                    sx={{
+                      backgroundColor: '#007BFF',
+                      color: '#fff',
+                      '&:hover': {
+                        backgroundColor: '#0056b3',
+                      },
+                    }}
+                  >
+                    <DownloadIcon />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="View Profile" arrow>
+                  <IconButton
+                    onClick={() => handleViewProfile(applicant.userId)}
+                    sx={{
+                      backgroundColor: '#007BFF',
+                      color: '#fff',
+                      '&:hover': {
+                        backgroundColor: '#0056b3',
+                      },
+                    }}
+                  >
+                    <VisibilityIcon />
+                  </IconButton>
+                </Tooltip>
+                {applicant.status === 'shortlisted' ? (
+                  <Typography variant="body1" sx={{ color: '#28a745', fontWeight: 'bold' }}>
+                    Shortlisted
+                  </Typography>
+                ) : applicant.status === 'rejected' ? (
+                  <Typography variant="body1" sx={{ color: '#dc3545', fontWeight: 'bold' }}>
+                    Rejected
+                  </Typography>
+                ) : (
+                  <>
+                    <Tooltip title="Shortlist" arrow>
+                      <IconButton
+                        onClick={() => handleShortlist(applicant.userId)}
+                        sx={{
+                          backgroundColor: '#28a745',
+                          color: '#fff',
+                          '&:hover': {
+                            backgroundColor: '#218838',
+                          },
+                        }}
+                      >
+                        <ThumbUpIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Reject" arrow>
+                      <IconButton
+                        onClick={() => handleReject(applicant.userId)}
+                        sx={{
+                          backgroundColor: '#dc3545',
+                          color: '#fff',
+                          '&:hover': {
+                            backgroundColor: '#c82333',
+                          },
+                        }}
+                      >
+                        <ThumbDownIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </>
+                )}
+              </Box>
+            </Box>
+          </Grid>
+        ))}
+      </Grid>
+
       <Dialog open={openDialog} onClose={handleCloseDialog}>
         {loadingProfile ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
@@ -225,9 +401,44 @@ function Candidate() {
           </DialogContent>
         )}
       </Dialog>
+
+      <Dialog
+        open={confirmRejectDialog}
+        onClose={() => setConfirmRejectDialog(false)}
+      >
+        <DialogTitle>Confirm Rejection</DialogTitle>
+        <DialogContent>
+          <Typography>Are you sure you want to reject this applicant?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmRejectDialog(false)} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={handleConfirmReject} color="secondary">
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={confirmShortlistDialog}
+        onClose={() => setConfirmShortlistDialog(false)}
+      >
+        <DialogTitle>Confirm Shortlisting</DialogTitle>
+        <DialogContent>
+          <Typography>Are you sure you want to shortlist this applicant?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmShortlistDialog(false)} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={handleConfirmShortlist} color="secondary">
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
 
 export default Candidate;
-

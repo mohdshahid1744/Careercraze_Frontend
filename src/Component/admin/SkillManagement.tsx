@@ -91,7 +91,7 @@ function SkillManagement() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <div className="flex min-h-screen " style={{backgroundColor:'beige'}}>
       <Drawer
         variant="permanent"
         className="w-60"

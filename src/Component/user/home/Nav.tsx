@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  AppBar, Toolbar, Typography, Box, Grid, Button, Drawer, IconButton, List, ListItem, ListItemText, useMediaQuery
+  AppBar, Toolbar, Typography, Box, Grid, Button, Drawer, IconButton, List, ListItem, ListItemText, useMediaQuery,ListItemIcon,Divider
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import { userLogout } from '../../../Redux/Slice/userSlice';
@@ -10,6 +10,24 @@ import { RootState } from '../../../Redux/Store/Store';
 import { Theme } from '@mui/material/styles';
 import { axiosUserInstance } from '../../../utils/axios/Axios';
 import socket from '../../../utils/Socket/Soket';
+import HomeIcon from '@mui/icons-material/Home';
+import WorkIcon from '@mui/icons-material/Work';
+import BookmarkIcon from '@mui/icons-material/Bookmark';
+import ChatIcon from '@mui/icons-material/Chat';
+import PersonIcon from '@mui/icons-material/Person';
+import ExitToAppIcon from '@mui/icons-material/ExitToApp';
+import { keyframes } from '@emotion/react';
+const clickAnimation = keyframes`
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.2) rotate(180deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+`;
 
 function Nav() {
   const navigate = useNavigate();
@@ -17,6 +35,13 @@ function Nav() {
   const userId = useSelector((state: RootState) => state.user.UserId);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const isSmallScreen = useMediaQuery((theme: Theme) => theme.breakpoints.down('lg'));
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  const handleClick = () => {
+    setIsAnimating(true);
+    handleDrawerToggle();
+    setTimeout(() => setIsAnimating(false), 300); 
+  };
 
   const handleHome = () => navigate('/home');
   const handleJob = () => navigate('/job');
@@ -34,26 +59,45 @@ function Nav() {
   const handleDrawerToggle = () => setDrawerOpen(!drawerOpen);
 
   const menuItems = (
-    <>
-      <ListItem button onClick={handleHome}>
+    <List>
+      <ListItem button onClick={handleHome} sx={{ '&:hover': { backgroundColor: '#f0f0f0' } }}>
+        <ListItemIcon>
+          <HomeIcon />
+        </ListItemIcon>
         <ListItemText primary="Home" />
       </ListItem>
-      <ListItem button onClick={handleJob}>
+      <ListItem button onClick={handleJob} sx={{ '&:hover': { backgroundColor: '#f0f0f0' } }}>
+        <ListItemIcon>
+          <WorkIcon />
+        </ListItemIcon>
         <ListItemText primary="Job" />
       </ListItem>
-      <ListItem button onClick={handleSavedJob}>
+      <ListItem button onClick={handleSavedJob} sx={{ '&:hover': { backgroundColor: '#f0f0f0' } }}>
+        <ListItemIcon>
+          <BookmarkIcon />
+        </ListItemIcon>
         <ListItemText primary="Saved Jobs" />
       </ListItem>
-      <ListItem button onClick={handleChat}>
+      <ListItem button onClick={handleChat} sx={{ '&:hover': { backgroundColor: '#f0f0f0' } }}>
+        <ListItemIcon>
+          <ChatIcon />
+        </ListItemIcon>
         <ListItemText primary="Messages" />
       </ListItem>
-      <ListItem button onClick={handleProfile}>
+      <ListItem button onClick={handleProfile} sx={{ '&:hover': { backgroundColor: '#f0f0f0' } }}>
+        <ListItemIcon>
+          <PersonIcon />
+        </ListItemIcon>
         <ListItemText primary="Profile" />
       </ListItem>
-      <ListItem button onClick={handleLogout}>
+      <ListItem button onClick={handleLogout} sx={{ '&:hover': { backgroundColor: '#f0f0f0' } }}>
+        <ListItemIcon>
+          <ExitToAppIcon />
+        </ListItemIcon>
         <ListItemText primary="Logout" />
       </ListItem>
-    </>
+      <Divider />
+    </List>
   );
 
   return (
@@ -69,18 +113,24 @@ function Nav() {
             />
           </Typography>
           {isSmallScreen ? (
-            <IconButton
-              edge="start"
-              color="primary"
-              aria-label="menu"
-              onClick={handleDrawerToggle}
-              sx={{
-                zIndex: 1300,
-              }}
-            >
-              <MenuIcon />
-            </IconButton>
-          ) : (
+        <IconButton
+          edge="start"
+          color="primary"
+          aria-label="menu"
+          onClick={handleClick}
+          sx={{
+            zIndex: 1300,
+            position: 'relative',
+            transition: 'color 0.3s ease',
+            animation: isAnimating ? `${clickAnimation} 0.3s` : 'none',
+            '&:hover': {
+              color: '#ff5722', 
+            },
+          }}
+        >
+          <MenuIcon />
+        </IconButton>
+      )  : (
             <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center',marginLeft:'750px' }} >
               <Grid container spacing={2} alignItems="center">
                 <Grid item>
