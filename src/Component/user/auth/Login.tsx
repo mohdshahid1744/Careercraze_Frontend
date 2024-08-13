@@ -123,7 +123,7 @@ function Login() {
         />
         <div className="order-2 md:order-1 flex flex-col justify-center md:ml-4">
           <Typography component="h1" variant="h5" className="text-2xl font-bold text-center">
-            Sign In
+           Log In
           </Typography>
           {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
           <form className="mt-4" onSubmit={formik.handleSubmit}>
