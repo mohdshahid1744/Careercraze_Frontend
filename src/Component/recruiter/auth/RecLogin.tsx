@@ -194,7 +194,7 @@ function RecLogin() {
         </div>
         <img
           src='../../../Images/recruiter.jpg'
-          alt="Front"
+          alt="Recruiter"
           className="order-1 md:order-2 w-48 md:w-64 h-auto rounded-xl mt-4 md:mt-0"
           style={{ boxShadow: '-3px 10px 30px rgba(100, 0, 0, 0.5)' }}
         />
