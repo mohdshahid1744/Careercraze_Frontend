@@ -243,8 +243,8 @@ function RecSignup() {
         </div>
 
         <img
-          src='../../../Images/RecSignup.jpg'
-          alt="Front"
+          src='../../../Images/RecSignup.JPG'
+          alt="RecFront"
           className="order-1 md:order-2 w-64 md:w-96 h-auto rounded-xl mt-4 md:mt-0"
           style={{ boxShadow: '-3px 10px 30px rgba(0, 0, 0, 0.5)' }}
         />

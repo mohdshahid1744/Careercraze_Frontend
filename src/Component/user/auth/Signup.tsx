@@ -202,7 +202,7 @@ function Signup() {
           </form>
         </div>
         <img
-          src='../../../Images/signup.jpg'
+          src='../../../Images/signup.JPG'
           alt="Front"
           className="order-1 md:order-2 w-40 md:w-64 h-auto rounded-xl mt-4 md:mt-0"
           style={{ boxShadow: '-3px 10px 30px rgba(0, 0, 0, 0.5)' }}
