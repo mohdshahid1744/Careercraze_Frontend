@@ -172,7 +172,7 @@ function Login() {
               className="w-80 md:w-88 mb-4"
               style={{ borderRadius: '20px' }}
             >
-              Sign In
+              Sign In man
             </Button>
             <Link to='/recruiter/reclogin' className="mt-4 md:ml-10 inline-block text-blue-500 hover:text-blue-700 transition duration-300 ease-in-out">
               Sign in as a recruiter
