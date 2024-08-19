@@ -280,8 +280,11 @@ const toggleOptions = (postId: string) => {
 };
 const handleFollowingClick = () => {
   try {
+    console.log('Following list:', userDetails?.following); 
     setIsFollowingModalOpen(true);
     setModalUserId(userDetails?.following || []);
+    console.log("Modal USER:",modalUserId);
+    
     setModalTitles('Followings');
   } catch (error) {
     console.error('Error fetching following:', error);
