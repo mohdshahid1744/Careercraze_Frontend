@@ -10,7 +10,7 @@ interface WebRTCContextProps {
     startCall: (userId: string) => void;
     acceptCall: (userId: string, from: string, offer: RTCSessionDescriptionInit) => void;
     endCall: () => void;
-    peerConnection: RTCPeerConnection | null; 
+    peerConnection: RTCPeerConnection | null;
 }
 
 const WebRTCContext = createContext<WebRTCContextProps | undefined>(undefined);
@@ -53,62 +53,87 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 ],
             });
 
-            // Handle ontrack event
+            // Handle ontrack event to receive remote stream
             peerConnection.current.ontrack = (event) => {
                 if (event.streams && event.streams[0]) {
                     console.log('Received remote stream:', event.streams[0]);
                     setRemoteStream(event.streams[0]);
                 }
             };
+            
 
-            // Handle onicecandidate event
+            // Handle ICE candidates
             peerConnection.current.onicecandidate = (event) => {
                 if (event.candidate) {
                     console.log('Sending ICE candidate:', event.candidate);
                     socket.emit('signal', { userId: fromId, type: 'candidate', candidate: event.candidate, context: 'webRTC' });
                 }
             };
+            
+            // On receiving signaling data
+            socket.on('signal', async (data) => {
+                const { type, candidate, answer } = data;
+                console.log('Received signal:', type, candidate, answer);
+
+                if (peerConnection.current) {
+                    try {
+                        if (type === 'answer' && peerConnection.current.signalingState === 'have-local-offer') {
+                            await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
+                        } else if (type === 'candidate' && peerConnection.current.signalingState !== 'closed') {
+                            await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+                        }
+                    } catch (error) {
+                        console.error('Error handling signal:', error);
+                    }
+                }
+            });
+
+            // Clean up listeners on component unmount
+            return () => {
+                socket.off('signal');
+            };
         }
     }, []);
 
     const startCall = async (userId: string) => {
+        if (!currentUser) {
+            console.error("Current user is not defined");
+            return;
+        }
+    
         setGuestId(userId);
         const stream = await navigator.mediaDevices.getUserMedia({
             audio: true,
             video: true,
         });
         setLocalStream(stream);
-        if (!currentUser) {
-            console.error("Current user is not defined");
-            return;
-        }
         setupPeerConnection(userId, currentUser);
-
+    
         if (peerConnection.current) {
-            for (const track of stream.getTracks()) {
-                peerConnection.current.addTrack(track, stream);
-            }
-
-            const offer = await peerConnection.current.createOffer();
-            await peerConnection.current.setLocalDescription(offer);
-
+            // Add tracks to the peer connection
+            stream.getTracks().forEach(track => peerConnection.current!.addTrack(track, stream));
+    
+            // Create and send offer
+            const offer = await peerConnection.current!.createOffer();
+            await peerConnection.current!.setLocalDescription(offer);
+    
             socket.emit('callUser', { userToCall: userId, from: username, offer, fromId: currentUser });
             setInCall(true);
         }
     };
+    
 
     const acceptCall = async (userId: string, fromId: string, offer: RTCSessionDescriptionInit) => {
         setGuestId(userId);
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         setLocalStream(stream);
-
         setupPeerConnection(userId, fromId);
 
         if (peerConnection.current) {
-            for (const track of stream.getTracks()) {
-                peerConnection.current.addTrack(track, stream);
-            }
+            // Add tracks to the peer connection
+            stream.getTracks().forEach(track => peerConnection.current!.addTrack(track, stream));
 
+            // Set remote description and create answer
             await peerConnection.current.setRemoteDescription(new RTCSessionDescription(offer));
             console.log('Remote description set:', offer);
 
@@ -143,49 +168,15 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     useEffect(() => {
-        socket.on('signal', async (data) => {
-            const { type, candidate, answer } = data;
-            console.log('Received signal:', type, candidate, answer);
-
-            if (peerConnection.current) {
-                try {
-                    if (type === 'answer' && peerConnection.current.signalingState === 'have-local-offer') {
-                        await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
-                    } else if (type === 'candidate' && peerConnection.current.signalingState !== 'closed') {
-                        await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
-                    }
-                } catch (error) {
-                    console.error('Error handling signal:', error);
-                }
-            }
-        });
-
-        socket.on('callAcceptedSignal', async (data) => {
-            const { answer } = data;
-            console.log('Received callAcceptedSignal:', answer);
-
-            if (peerConnection.current) {
-                try {
-                    if (peerConnection.current.signalingState === 'have-local-offer') {
-                        await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
-                    }
-                } catch (error) {
-                    console.error('Error handling callAcceptedSignal:', error);
-                }
-            }
-        });
-
         socket.on('callEndedSignal', () => {
-            console.log('Came to end call');
+            console.log('Call ended by remote peer');
             endCall();
         });
 
         return () => {
-            socket.off('signal');
             socket.off('callEndedSignal');
-            socket.off('callAcceptedSignal');
         };
-    }, [setupPeerConnection]);
+    }, []);
 
     const contextValue: WebRTCContextProps = {
         localStream,
