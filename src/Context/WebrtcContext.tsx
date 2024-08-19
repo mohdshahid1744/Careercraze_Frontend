@@ -23,8 +23,6 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const username = useSelector((store: RootState) => store.user.userEmail);
     const currentUser = useSelector((store: RootState) => store.user.UserId);
     const peerConnection = useRef<RTCPeerConnection | null>(null);
-
-    // Ringtone control functions
     const ringtoneRef = useRef<HTMLAudioElement | null>(null);
 
     const playRingtone = () => {
@@ -42,6 +40,37 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
     };
 
+    const setupPeerConnection = useCallback((userId: string, fromId: string) => {
+        if (!peerConnection.current) {
+            peerConnection.current = new RTCPeerConnection({
+                iceServers: [
+                    {
+                        urls: [
+                            "stun:stun.l.google.com:19302",
+                            "stun:global.stun.twilio.com:3478",
+                        ],
+                    },
+                ],
+            });
+
+            // Handle ontrack event
+            peerConnection.current.ontrack = (event) => {
+                if (event.streams && event.streams[0]) {
+                    console.log('Received remote stream:', event.streams[0]);
+                    setRemoteStream(event.streams[0]);
+                }
+            };
+
+            // Handle onicecandidate event
+            peerConnection.current.onicecandidate = (event) => {
+                if (event.candidate) {
+                    console.log('Sending ICE candidate:', event.candidate);
+                    socket.emit('signal', { userId: fromId, type: 'candidate', candidate: event.candidate, context: 'webRTC' });
+                }
+            };
+        }
+    }, []);
+
     const startCall = async (userId: string) => {
         setGuestId(userId);
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -49,41 +78,23 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             video: true,
         });
         setLocalStream(stream);
+        if (!currentUser) {
+            console.error("Current user is not defined");
+            return;
+        }
+        setupPeerConnection(userId, currentUser);
 
-        if (!peerConnection.current) {
-            peerConnection.current = new RTCPeerConnection({
-                iceServers: [
-                    {
-                        urls: [
-                            "stun:stun.l.google.com:19302",
-                            "stun:global.stun.twilio.com:3478",
-                        ],
-                    },
-                ],
-            });
-
-            peerConnection.current.ontrack = (event) => {
-                if (event.streams && event.streams[0]) {
-                    setRemoteStream(event.streams[0]);
-                }
-            };
-
-            peerConnection.current.onicecandidate = (event) => {
-                if (event.candidate) {
-                    socket.emit('signal', { userId, type: 'candidate', candidate: event.candidate, context: 'webRTC' });
-                }
-            };
-
+        if (peerConnection.current) {
             for (const track of stream.getTracks()) {
                 peerConnection.current.addTrack(track, stream);
             }
+
+            const offer = await peerConnection.current.createOffer();
+            await peerConnection.current.setLocalDescription(offer);
+
+            socket.emit('callUser', { userToCall: userId, from: username, offer, fromId: currentUser });
+            setInCall(true);
         }
-
-        const offer = await peerConnection.current.createOffer();
-        await peerConnection.current.setLocalDescription(offer);
-
-        socket.emit('callUser', { userToCall: userId, from: username, offer, fromId: currentUser });
-        setInCall(true);
     };
 
     const acceptCall = async (userId: string, fromId: string, offer: RTCSessionDescriptionInit) => {
@@ -91,42 +102,23 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         setLocalStream(stream);
 
-        if (!peerConnection.current) {
-            peerConnection.current = new RTCPeerConnection({
-                iceServers: [
-                    {
-                        urls: [
-                            "stun:stun.l.google.com:19302",
-                            "stun:global.stun.twilio.com:3478",
-                        ],
-                    },
-                ],
-            });
+        setupPeerConnection(userId, fromId);
 
-            peerConnection.current.ontrack = (event) => {
-                if (event.streams && event.streams[0]) {
-                    setRemoteStream(event.streams[0]);
-                }
-            };
-
-            peerConnection.current.onicecandidate = (event) => {
-                if (event.candidate) {
-                    socket.emit('signal', { userId: fromId, type: 'candidate', candidate: event.candidate, context: 'webRTC' });
-                }
-            };
-
+        if (peerConnection.current) {
             for (const track of stream.getTracks()) {
                 peerConnection.current.addTrack(track, stream);
             }
+
+            await peerConnection.current.setRemoteDescription(new RTCSessionDescription(offer));
+            console.log('Remote description set:', offer);
+
+            const answer = await peerConnection.current.createAnswer();
+            await peerConnection.current.setLocalDescription(answer);
+
+            socket.emit('callAccepted', { userId: fromId, answer, context: 'webRTC' });
+            setInCall(true);
+            stopRingtone();
         }
-
-        await peerConnection.current.setRemoteDescription(new RTCSessionDescription(offer));
-        const answer = await peerConnection.current.createAnswer();
-        await peerConnection.current.setLocalDescription(answer);
-
-        socket.emit('callAccepted', { userId: fromId, answer, context: 'webRTC' });
-        setInCall(true);
-        stopRingtone(); // Stop the ringtone when the call is accepted
     };
 
     const endCall = () => {
@@ -147,7 +139,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         socket.emit("callEnded", guestId);
         setInCall(false);
-        stopRingtone(); // Stop the ringtone when the call is ended
+        stopRingtone();
     };
 
     useEffect(() => {
@@ -174,7 +166,6 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
             if (peerConnection.current) {
                 try {
-                    console.log('vannu');
                     if (peerConnection.current.signalingState === 'have-local-offer') {
                         await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
                     }
@@ -185,7 +176,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         });
 
         socket.on('callEndedSignal', () => {
-            console.log('came to end call');
+            console.log('Came to end call');
             endCall();
         });
 
@@ -194,7 +185,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             socket.off('callEndedSignal');
             socket.off('callAcceptedSignal');
         };
-    }, []);
+    }, [setupPeerConnection]);
 
     const contextValue: WebRTCContextProps = {
         localStream,
@@ -203,7 +194,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         startCall,
         acceptCall,
         endCall,
-        peerConnection: peerConnection.current, 
+        peerConnection: peerConnection.current,
     };
 
     return (
