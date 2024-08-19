@@ -383,8 +383,8 @@ const handleFollowingClick = () => {
       <button onClick={handleBannerUpload}>Upload Banner</button>
     </div>
   )}
-  <Box sx={{ mt: 4, display: 'flex', justifyContent: 'space-around' }} onClick={handleFollowingClick}>
-    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+  <Box sx={{ mt: 4, display: 'flex', justifyContent: 'space-around' }}>
+    <Box sx={{ display: 'flex', alignItems: 'center' }}  onClick={handleFollowingClick}>
       <PeopleOutlineIcon sx={{ mr: 1, color: 'black' }} />
       <Typography variant="subtitle1" sx={{ mr: 1 }}>
         Following
