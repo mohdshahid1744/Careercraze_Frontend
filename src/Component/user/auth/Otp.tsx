@@ -99,7 +99,7 @@ function Otp() {
           We have sent the verification code to your email address
         </h5>
         <img
-          src="../../../Images/OTP.jpg"
+          src="../../../Images/OTP.JPG"
           alt="OTP Illustration"
           style={{
             display: 'block',

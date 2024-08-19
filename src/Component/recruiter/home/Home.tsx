@@ -411,7 +411,7 @@ const handleClick = () => {
       }}
     >
                 <img
-            src='../../../Images/waiting.jpg'
+            src='../../../Images/waiting.JPG'
             alt="Verification Icon"
             style={{
               width: '100%',

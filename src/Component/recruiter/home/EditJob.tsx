@@ -462,7 +462,7 @@ const EditJob = () => {
             </form>
             {showImage && (
               <img
-                src='../../../Images/newjob.jpg'
+                src='../../../Images/edit.JPG'
                 alt="Front"
                 className="order-1 md:order-2 w-full md:w-128 h-auto rounded-xl mt-4 md:mt-0 absolute"
                 style={{
