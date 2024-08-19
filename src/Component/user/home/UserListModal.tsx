@@ -22,8 +22,13 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userIds, title }) => {
                 try {
                     const responses = await Promise.all(userIds.map(id => axiosUserInstance.get(`/getuser/${id}`)));
                     const fetchedUserDetails = responses.map(response => {
-                        const { name, avatar } = response.data.response; 
-                        return { name, avatar };
+                        const userResponse = response.data.response;
+                        if (userResponse) {
+                            const { name, avatar } = userResponse;
+                            return { name, avatar };
+                        } else {
+                            return { name: 'Unknown', avatar: '' };
+                        }
                     });
                     setUserDetails(fetchedUserDetails);
                     console.log("Fetched user details:", fetchedUserDetails);
@@ -34,9 +39,10 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userIds, title }) => {
                 setUserDetails([]);
             }
         };
-
+    
         fetchUserDetails();
     }, [userIds]);
+    
 
     if (!isOpen) return null;
     return (

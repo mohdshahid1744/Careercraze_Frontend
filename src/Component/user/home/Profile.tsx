@@ -283,7 +283,7 @@ const handleFollowingClick = () => {
   try {
     console.log('Following list:', userDetails?.following); 
     setIsFollowingModalOpen(true);
-    setModalUserId(userDetails?.following);
+    setModalUserId(userDetails?.following || []);
     console.log("Modal USER:",modalUserId);
     
     setModalTitles('Followings');
