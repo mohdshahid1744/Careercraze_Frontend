@@ -13,6 +13,7 @@ import ChatPage from "../Pages/user/ChatPage";
 import RecruiterProfile from "../Pages/user/RecruiterProfile";
 import Videocall from "../Component/user/home/Videocall";
 import AppliedJobsPage from "../Pages/user/AppliedJobsPage";
+import PageNotFound from "../Component/user/home/PageNotFound";
 const UserRoutes = () => {
     return (
         < Routes >
@@ -33,6 +34,7 @@ const UserRoutes = () => {
                     <Route path='/video' element={<ChatPage/>}/>
                     <Route path='/appliedjobs' element={<AppliedJobsPage/>}/>
                 </Route>
+                <Route path='/*' element={<PageNotFound />} />
         </Routes >
         
     )

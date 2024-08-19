@@ -7,11 +7,13 @@ import ChatProvider from './Context/ChatProvider';
 import { WebRTCProvider, useWebRTC } from './Context/WebrtcContext';
 import VideoCallModal from './Component/user/home/Videocall';
 import GlobalIncomingCallHandler from './Component/user/home/IncomingCall';
-
+import { ErrorBoundary } from 'react-error-boundary';
+import { fallbackRender } from './Component/user/home/Error';
 function App() {
   return (
     <WebRTCProvider>
       <div className="App">
+      <ErrorBoundary FallbackComponent={fallbackRender}>
         <Router>
           <ChatProvider>
             <Routes>
@@ -23,6 +25,7 @@ function App() {
         </Router>
         <GlobalVideoCallHandler />
         <GlobalIncomingCallHandler />
+        </ErrorBoundary>
       </div>
     </WebRTCProvider>
   );

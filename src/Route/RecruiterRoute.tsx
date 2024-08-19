@@ -10,6 +10,7 @@ import ProfilePage from "../Pages/recruiter/ProfilePage";
 import PrivateRouterRecruiter from "../utils/RouteRecruiter/PrivateRecruiter";
 import PublicRouterRecruiter from "../utils/RouteRecruiter/PublicRecruiter";
 import UserProfilePage from "../Pages/recruiter/UserProfilePage";
+import PageNotFound from "../Component/user/home/PageNotFound";
 const RecruiterRoute=()=>{
     return(
         <Routes>
@@ -26,6 +27,7 @@ const RecruiterRoute=()=>{
             < Route path='/profile/:id' element={< ProfilePage />} />
             < Route path='/userprofile/:id' element={< UserProfilePage />} />
             </Route>
+            <Route path='/*' element={<PageNotFound />} />
         </Routes>
         
         
