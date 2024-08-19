@@ -273,6 +273,7 @@ const toggleOptions = (postId: string) => {
     try {
       setIsFollowersModalOpen(true);
       setModalUserIds(userDetails?.followers || []);
+      console.log("Modal USER:",modalUserId);
       setModalTitle('Followers');
     } catch (error) {
       console.error('Error fetching followers:', error);
@@ -282,7 +283,7 @@ const handleFollowingClick = () => {
   try {
     console.log('Following list:', userDetails?.following); 
     setIsFollowingModalOpen(true);
-    setModalUserId(userDetails?.following || []);
+    setModalUserId(userDetails?.following);
     console.log("Modal USER:",modalUserId);
     
     setModalTitles('Followings');
