@@ -67,6 +67,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             };
 
             peerConnection.current.onicecandidate = (event) => {
+                console.log('ICE candidate1:', event.candidate);
                 if (event.candidate) {
                     socket.emit('signal', { userId, type: 'candidate', candidate: event.candidate, context: 'webRTC' });
                 }
@@ -108,6 +109,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             };
 
             peerConnection.current.onicecandidate = (event) => {
+                console.log('ICE candidate:', event.candidate);
                 if (event.candidate) {
                     socket.emit('signal', { userId: fromId, type: 'candidate', candidate: event.candidate, context: 'webRTC' });
                 }
@@ -150,21 +152,38 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     useEffect(() => {
         socket.on('signal', async (data) => {
-            const { type, candidate, answer } = data;
-            console.log('Received signal:', type, candidate, answer);
-
+            const { type, candidate, answer, offer, from } = data;
+            
             if (peerConnection.current) {
-                try {
-                    if (type === 'answer' && peerConnection.current.signalingState === 'have-local-offer') {
-                        await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
-                    } else if (type === 'candidate' && peerConnection.current.signalingState !== 'closed') {
-                        await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+                if (type === 'candidate') {
+                    try {
+                        if (candidate) {
+                            await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+                        }
+                    } catch (error) {
+                        console.error('Error adding ICE candidate:', error);
                     }
-                } catch (error) {
-                    console.error('Error handling signal:', error);
+                } else if (type === 'answer') {
+                    try {
+                        await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
+                    } catch (error) {
+                        console.error('Error setting remote description:', error);
+                    }
+                } else if (type === 'offer') {
+                    try {
+                        if (peerConnection.current) {
+                            await peerConnection.current.setRemoteDescription(new RTCSessionDescription(offer));
+                            const answer = await peerConnection.current.createAnswer();
+                            await peerConnection.current.setLocalDescription(answer);
+                            socket.emit('signal', { type: 'answer', answer, to: from });
+                        }
+                    } catch (error) {
+                        console.error('Error handling offer:', error);
+                    }
                 }
             }
-        });
+        })
+          
 
         socket.on('callAcceptedSignal', async (data) => {
             const { answer } = data;
